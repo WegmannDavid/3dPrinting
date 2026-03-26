@@ -1,9 +1,10 @@
 from prelude import *
 import split
 
-WIDTH = NOZZLE * 5 #accessible
-_SIDES = NOZZLE * 4 #private
-_STRENGTH = NOZZLE * 2 #private
+WIDTH = NOZZLE * 5  # accessible
+_SIDES = NOZZLE * 4  # private
+_STRENGTH = NOZZLE * 2  # private
+Y_OFFSET = NOZZLE * 8
 
 
 def _shape1(height, width, depth):
@@ -19,7 +20,7 @@ def _shape1(height, width, depth):
 
 
 def vbar(height, contactArea):
-    freeArea = height- WIDTH - _SIDES
+    freeArea = height - WIDTH - _SIDES
     contactArea = min(freeArea / 2, contactArea)
 
     middle = _shape1(height - LAYER * 3, WIDTH, _STRENGTH / 2)
@@ -31,7 +32,9 @@ def vbar(height, contactArea):
 
     contact = _shape1(contactArea - LAYER * 3, NOZZLE, _STRENGTH)
     contact = contact.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 180)
-    contact = contact.translate((WIDTH - _STRENGTH, _SIDES - _STRENGTH / 2, height - contactArea + LAYER * 3))
+    contact = contact.translate(
+        (WIDTH - _STRENGTH, _SIDES - _STRENGTH / 2, height - contactArea + LAYER * 3)
+    )
 
     half = middle.union(side).union(contact)
     whole = half.union(half.mirror("XZ"))
@@ -39,7 +42,7 @@ def vbar(height, contactArea):
 
 
 def vbarCutout(height, contactArea):
-    freeArea = height- WIDTH - _SIDES
+    freeArea = height - WIDTH - _SIDES
     contactArea = min(freeArea / 2, contactArea)
 
     middle = _shape1(height - LAYER * 2, WIDTH + NOZZLE, _STRENGTH / 2 + EPSILON)
@@ -49,9 +52,13 @@ def vbarCutout(height, contactArea):
     side = side.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), -90)
     side = side.translate((WIDTH + NOZZLE, -_STRENGTH / 2, WIDTH + LAYER * 2))
 
-    contact = _shape1(height-WIDTH-_SIDES-contactArea - LAYER * 2, NOZZLE, _SIDES + NOZZLE)
+    contact = _shape1(
+        height - WIDTH - _SIDES - contactArea - LAYER * 2, NOZZLE, _SIDES + NOZZLE
+    )
     contact = contact.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 180)
-    contact = contact.translate((WIDTH - _STRENGTH, _STRENGTH / 2, WIDTH + _SIDES + contactArea + LAYER * 2))
+    contact = contact.translate(
+        (WIDTH - _STRENGTH, _STRENGTH / 2, WIDTH + _SIDES + contactArea + LAYER * 2)
+    )
 
     half = middle.union(side).union(contact)
     whole = half.union(half.mirror("XZ"))
@@ -64,7 +71,8 @@ def vbarFeature(height, contactArea):
     gap = cutout.cut(bar)
     return gap
 
+
 def vbarDoubleFeature(height, z, contactArea):
     vbar1 = vbarFeature(z, contactArea)
-    vbar2 = vbarFeature(height-z, contactArea).mirror("XY").translate((0, 0, height))
+    vbar2 = vbarFeature(height - z, contactArea).mirror("XY").translate((0, 0, height))
     return vbar1.union(vbar2)

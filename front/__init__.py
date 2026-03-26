@@ -4,14 +4,15 @@ from prelude import *
 import split.vbar
 import duct.solid
 
-WALL_STRENGTH = NOZZLE * 16
+WALL_STRENGTH = NOZZLE * 10
+FLOOR_STRENGTH = 5
 HEIGHT = 210
 WIDTH = 1144
-CAVITY1_DEPTH = 10
-CAVITY2_DEPTH = 20
+DUCT_FOAM_DEPTH = 10
+FOAM_THICKNESS = 20
 DUCT_DEPTH = 20
-DEPTH = CAVITY1_DEPTH + DUCT_DEPTH + CAVITY2_DEPTH + WALL_STRENGTH * 4
-CAVITY_HEIGHT = HEIGHT - WALL_STRENGTH * 2
+DEPTH = DUCT_DEPTH + FOAM_THICKNESS * 2 + WALL_STRENGTH * 4
+CAVITY_HEIGHT = HEIGHT - FLOOR_STRENGTH * 2
 
 
 BASE_PLATE_DEPTH = 144
@@ -45,25 +46,13 @@ import front.filter
 import front.basePlate
 import shapes
 
-_CAVITY1_LEFT_EXTENSION = 100
-_CAVITY1_RIGHT_EXTENSION = 30
 
-_BEND_WIDTH = 60
-
-_DUCT_WIDTH = SECTION234_WIDTH * 2 - _BEND_WIDTH
-
-_CAVITY1_WIDTH = (
-    SECTION234_WIDTH * 2
-    - _BEND_WIDTH
-    + _CAVITY1_LEFT_EXTENSION
-    + _CAVITY1_RIGHT_EXTENSION
-)
+_DUCT_WIDTH = SECTION234_WIDTH * 2 + WALL_STRENGTH
 
 import duct.vane
 
 
 _FILTER_FAN_ASSEMBLY_GAP = NOZZLE * 12
-_CAVITY2_WIDTH = WIDTH - 2 * SIDES_WIDTH - SECTION15_WIDTH - WALL_STRENGTH * 2
 
 _FANASSEMBLY_CUTOUT_OFFSETY = WALL_STRENGTH
 _FANASSEMBLY_CUTOUT_DEPTH = (
@@ -82,58 +71,76 @@ import front.elbow
 
 _ELBOW_WIDTH = SECTION15_WIDTH - WALL_STRENGTH * 2
 
-_ELBOW_DEPTH = front.elbow.DEPTH + front.elbow.FOAMDEPTH * 2
 
-_ELBOW_OFFSETY = ((WALL_STRENGTH * 3 + CAVITY1_DEPTH + DUCT_DEPTH) - _ELBOW_DEPTH) / 2
-
-elbowSet = front.elbow.make_elbow_set(_ELBOW_WIDTH).translate(
-    (WIDTH - SIDES_WIDTH - WALL_STRENGTH - _ELBOW_WIDTH, _ELBOW_OFFSETY, WALL_STRENGTH)
+elbowSet = front.elbow.make_elbow_set(
+    _ELBOW_WIDTH, CAVITY_HEIGHT, DUCT_DEPTH, FOAM_THICKNESS, 20
+).translate(
+    (
+        WIDTH - SIDES_WIDTH - WALL_STRENGTH - _ELBOW_WIDTH,
+        WALL_STRENGTH * 2,
+        FLOOR_STRENGTH,
+    )
 )
 
 from helmholtz.array import tuned_helmholtz_array
 
 
-def helmholtzCutouts():
-    a_depth = WALL_STRENGTH + DUCT_DEPTH
+def cavityCutouts():
 
-    a2 = tuned_helmholtz_array(
-        4, 4, SECTION234_WIDTH, a_depth, CAVITY_HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH, 0, 0))
-    a3 = tuned_helmholtz_array(
-        4, 4, SECTION234_WIDTH, a_depth, CAVITY_HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH, 0, 0))
-    a4 = tuned_helmholtz_array(
-        4, 4, SECTION234_WIDTH, a_depth, CAVITY_HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH * 2, 0, 0))
-    a5 = tuned_helmholtz_array(
-        4, 4, SECTION234_WIDTH, a_depth, CAVITY_HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH * 3, 0, 0))
-
-    a = (
-        a2.union(a3)
-        .union(a4)
-        .union(a5)
-        .translate((0, WALL_STRENGTH * 2 + CAVITY1_DEPTH, WALL_STRENGTH))
+    result = shapes.box(
+        SECTION234_WIDTH - 2 * WALL_STRENGTH, FOAM_THICKNESS, CAVITY_HEIGHT
+    ).translate(
+        (
+            SIDES_WIDTH + SECTION15_WIDTH + WALL_STRENGTH,
+            DEPTH - FOAM_THICKNESS - WALL_STRENGTH,
+            FLOOR_STRENGTH,
+        )
     )
 
-    b_depth = WALL_STRENGTH + CAVITY1_DEPTH
+    offset = 150
 
-    b2 = tuned_helmholtz_array(
-        4, 4, SECTION234_WIDTH, b_depth, CAVITY_HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH, 0, 0))
-    b3 = tuned_helmholtz_array(
-        4, 4, SECTION234_WIDTH, b_depth, CAVITY_HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH, 0, 0))
-    b4 = tuned_helmholtz_array(
-        4, 4, SECTION234_WIDTH, b_depth, CAVITY_HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH * 2, 0, 0))
-    b5 = tuned_helmholtz_array(
-        4, 4, SECTION234_WIDTH, b_depth, CAVITY_HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH * 3, 0, 0))
+    offsetHalf = 75
 
-    b = b2.union(b3).union(b4).union(b5).translate((0, WALL_STRENGTH, WALL_STRENGTH))
+    result = result.union(
+        shapes.box(
+            SECTION234_WIDTH - WALL_STRENGTH - offset, FOAM_THICKNESS, CAVITY_HEIGHT
+        ).translate(
+            (
+                SIDES_WIDTH + SECTION15_WIDTH + offset,
+                WALL_STRENGTH,
+                FLOOR_STRENGTH,
+            )
+        )
+    )
 
-    return a.union(b)
+    result = result.union(
+        shapes.box(
+            SECTION234_WIDTH - WALL_STRENGTH - offsetHalf,
+            FOAM_THICKNESS / 2,
+            CAVITY_HEIGHT,
+        ).translate(
+            (
+                SIDES_WIDTH + SECTION15_WIDTH + offsetHalf,
+                WALL_STRENGTH,
+                FLOOR_STRENGTH,
+            )
+        )
+    )
+
+    for x, width in _SECTIONS[2:-1]:
+        c1 = shapes.box(
+            width - 2 * WALL_STRENGTH, FOAM_THICKNESS, CAVITY_HEIGHT
+        ).translate((x + WALL_STRENGTH, WALL_STRENGTH, FLOOR_STRENGTH))
+
+        c2 = shapes.box(
+            width - 2 * WALL_STRENGTH, FOAM_THICKNESS, CAVITY_HEIGHT
+        ).translate(
+            (x + WALL_STRENGTH, DEPTH - FOAM_THICKNESS - WALL_STRENGTH, FLOOR_STRENGTH)
+        )
+
+        result = result.union(c1).union(c2)
+
+    return result
 
 
 def _cutouts():
@@ -143,48 +150,29 @@ def _cutouts():
         width=DUCT_DEPTH,
         height=CAVITY_HEIGHT,
         x=SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH,
-        y=WALL_STRENGTH * 2 + CAVITY1_DEPTH,
-        z=WALL_STRENGTH,
+        y=WALL_STRENGTH * 2 + FOAM_THICKNESS,
+        z=FLOOR_STRENGTH,
     )
-
-    ductOutPort = ductInPort.translate((_DUCT_WIDTH, 0, 0))
 
     expanderCutout = duct.solid.rectDuctYZAlongX(fanAssemblySet.port, ductInPort)
 
-    bendCutout = duct.solid.rectDuctYZAlongX(ductOutPort, elbowSet.port)
-
-    cavity1Cutout = shapes.box(_CAVITY1_WIDTH, CAVITY1_DEPTH, CAVITY_HEIGHT).translate(
-        (
-            SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH - _CAVITY1_LEFT_EXTENSION,
-            WALL_STRENGTH,
-            WALL_STRENGTH,
-        )
-    )
     ductCutout = shapes.box(_DUCT_WIDTH, DUCT_DEPTH, CAVITY_HEIGHT).translate(
         (
             SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH,
-            WALL_STRENGTH * 2 + CAVITY1_DEPTH,
-            WALL_STRENGTH,
+            WALL_STRENGTH * 2 + FOAM_THICKNESS,
+            FLOOR_STRENGTH,
         )
     )
 
-    cavity2Cutout = shapes.box(_CAVITY2_WIDTH, CAVITY2_DEPTH, CAVITY_HEIGHT).translate(
-        (
-            SIDES_WIDTH + SECTION15_WIDTH + WALL_STRENGTH,
-            DEPTH - WALL_STRENGTH - CAVITY2_DEPTH,
-            WALL_STRENGTH,
-        )
-    )
+    _cavityCutouts = cavityCutouts()
 
     return (
         expanderCutout.union(filterCutout)
         .union(fanAssemblySet.cutout)
         .union(expanderCutout)
-        .union(cavity1Cutout)
+        .union(_cavityCutouts)
         .union(ductCutout)
-        .union(bendCutout)
         .union(elbowSet.cutout)
-        .union(cavity2Cutout)
         # .union(helmholtzCutouts())
     )
 
@@ -205,7 +193,7 @@ def full():
 
 
 def femFoam():
-    return elbowSet.foam
+    return elbowSet.foam.union(cavityCutouts())
 
 
 def fem():
@@ -317,10 +305,10 @@ def splitX():
     ).translate((0, WALL_STRENGTH / 2, 0))
     v2 = split.vbar.vbarDoubleFeature(
         HEIGHT + BASE_PLATE_HEIGHT, m, contactArea
-    ).translate((0, CAVITY1_DEPTH + WALL_STRENGTH * 1.5, 0))
+    ).translate((0, FOAM_THICKNESS + WALL_STRENGTH * 1.5, 0))
     v3 = split.vbar.vbarDoubleFeature(
         HEIGHT + BASE_PLATE_HEIGHT, m, contactArea
-    ).translate((0, DEPTH - CAVITY2_DEPTH - WALL_STRENGTH * 1.5, 0))
+    ).translate((0, DEPTH - FOAM_THICKNESS - WALL_STRENGTH * 1.5, 0))
     v4 = split.vbar.vbarDoubleFeature(
         HEIGHT + BASE_PLATE_HEIGHT, m, contactArea
     ).translate((0, DEPTH - WALL_STRENGTH / 2, 0))
@@ -349,13 +337,13 @@ def hrails(width):
     reduced_width = width - WALL_STRENGTH * 3
     h1 = split.hbar.hbarFeature(reduced_width).translate((0, split.hbar.Y_OFFSET, 0))
     h2 = split.hbar.hbarFeature(reduced_width).translate(
-        (0, WALL_STRENGTH + CAVITY1_DEPTH + split.hbar.Y_OFFSET, 0)
+        (0, WALL_STRENGTH + FOAM_THICKNESS + split.hbar.Y_OFFSET, 0)
     )
     h3 = split.hbar.hbarFeature(reduced_width).translate(
-        (0, DEPTH - CAVITY2_DEPTH - WALL_STRENGTH - split.hbar.Y_OFFSET, 0)
+        (0, DEPTH - FOAM_THICKNESS - WALL_STRENGTH - split.hbar.Y_OFFSET, 0)
     )
     h4 = split.hbar.hbarFeature(reduced_width).translate(
-        (0, DEPTH - split.hbar.Y_OFFSET, 0)
+        (0, DEPTH - FOAM_THICKNESS - split.hbar.Y_OFFSET, 0)
     )
     return h1.union(h2).union(h3).union(h4).translate((WALL_STRENGTH * 1.5, 0, height))
 

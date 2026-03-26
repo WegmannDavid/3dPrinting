@@ -14,6 +14,18 @@ vanes = front.elbowSet.vanes
 
 _full = front.full()
 
+_fem = front.fem()
+_femfoam = front.femFoam()
+
+import export
+
+export.combined_nastran(
+    shapes=[_fem, _femfoam],
+    output_path="build/nas/system/fem.nas",
+    max_element_size=10.0,
+)
+
+
 _solids = front.fullSplit().solids()
 _solids = sorted(_solids, key=lambda s: (s.Center().x, s.Center().y, s.Center().z))[:12]
 
@@ -34,15 +46,3 @@ cq.exporters.export(_solids[9], "build/stl/system/sec5.stl")
 cq.exporters.export(_solids[10], "build/stl/system/sec5top.stl")
 
 cq.exporters.export(_solids[11], "build/stl/system/right.stl")
-
-import export
-
-# Usage
-_fem = front.fem()
-_femfoam = front.femFoam()
-
-export.combined_nastran(
-    shapes=[_fem, _femfoam],
-    output_path="build/nas/system/fem.nas",
-    max_element_size=10.0,
-)

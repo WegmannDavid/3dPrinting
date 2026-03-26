@@ -8,15 +8,9 @@ import shapes
 
 import front
 
-SIZE = front.CAVITY_HEIGHT
-DEPTH = front.DUCT_DEPTH
-NUMVANES = 20
-
 SUPPORT_THICKNESS = NOZZLE * 2
-VANE_SIZE = duct.vane.vaneSize(SIZE, NUMVANES)
 
 GAP_FOAM_THICKNESS = 1.5
-FOAMDEPTH = 10
 
 
 @dataclass
@@ -35,17 +29,20 @@ class ElbowSet:
         )
 
 
-def make_elbow_set(width):
+def make_elbow_set(width, size, duct_depth, foam_depth, num_vanes):
+
+    vane_size = duct.vane.vaneSize(size, num_vanes)
+
     def vanes():
-        v = duct.vane.vanes(SIZE, DEPTH, NUMVANES)
+        v = duct.vane.vanes(size, duct_depth, num_vanes)
         support = (
             cq.Workplane("XZ")
-            .moveTo(-VANE_SIZE, -VANE_SIZE)
-            .lineTo(-VANE_SIZE, VANE_SIZE)
-            .lineTo(SIZE - VANE_SIZE * 2, SIZE)
-            .lineTo(SIZE, SIZE)
-            .lineTo(SIZE, SIZE - VANE_SIZE * 2)
-            .lineTo(VANE_SIZE, -VANE_SIZE)
+            .moveTo(-vane_size, -vane_size)
+            .lineTo(-vane_size, vane_size)
+            .lineTo(size - vane_size * 2, size)
+            .lineTo(size, size)
+            .lineTo(size, size - vane_size * 2)
+            .lineTo(vane_size, -vane_size)
             .close()
             .extrude(SUPPORT_THICKNESS)
         )
@@ -55,44 +52,44 @@ def make_elbow_set(width):
     def cutout():
         return shapes.box(
             width,
-            front.DUCT_DEPTH + 2 * FOAMDEPTH,
-            SIZE + 2 * GAP_FOAM_THICKNESS + VANE_SIZE,
-        ).translate((0, 0, -GAP_FOAM_THICKNESS - VANE_SIZE))
+            duct_depth + 2 * foam_depth,
+            size + 2 * GAP_FOAM_THICKNESS + vane_size,
+        ).translate((0, 0, -GAP_FOAM_THICKNESS - vane_size))
 
     def foam():
         c = cutout()
-        ductIn = shapes.box(
-            width - FOAMDEPTH, front.DUCT_DEPTH, SIZE + 2 * GAP_FOAM_THICKNESS
-        ).translate((0, FOAMDEPTH, 0))
+        ductIn = shapes.box(width, duct_depth, size + 2 * GAP_FOAM_THICKNESS).translate(
+            (0, foam_depth, 0)
+        )
         ductOut = shapes.box(
-            SIZE + VANE_SIZE, front.DUCT_DEPTH, VANE_SIZE + GAP_FOAM_THICKNESS
+            size + vane_size, duct_depth, vane_size + GAP_FOAM_THICKNESS
         ).translate(
             (
-                width - SIZE - FOAMDEPTH - VANE_SIZE,
-                FOAMDEPTH,
-                -GAP_FOAM_THICKNESS - VANE_SIZE,
+                width - size - vane_size,
+                foam_depth,
+                -GAP_FOAM_THICKNESS - vane_size,
             )
         )
         return c.cut(ductIn).cut(ductOut)
 
     def port():
         return duct.solid.RectPort(
-            width=front.DUCT_DEPTH,
-            height=SIZE,
+            width=duct_depth,
+            height=size,
             x=0,
-            y=FOAMDEPTH,
+            y=foam_depth,
             z=0,
         )
 
-    outletCutout = shapes.box(SIZE, front.DUCT_DEPTH, SIZE).translate(
+    outletCutout = shapes.box(size, duct_depth, size).translate(
         (
-            width - FOAMDEPTH - SIZE,
-            FOAMDEPTH,
-            -SIZE,
+            width - size,
+            foam_depth,
+            -size - GAP_FOAM_THICKNESS,
         )
     )
 
-    v = vanes().translate((width - FOAMDEPTH - SIZE, FOAMDEPTH, 0))
+    v = vanes().translate((width - size, foam_depth, 0))
     c = cutout().union(outletCutout)
     f = foam()
     p = port()
