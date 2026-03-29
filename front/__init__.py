@@ -4,8 +4,11 @@ from prelude import *
 import split.vbar
 import duct.solid
 
+import external.m3
+
 WALL_STRENGTH = NOZZLE * 10
-FLOOR_STRENGTH = 5
+M3_WALL_STRENGTH = external.m3.OFFSET * 2
+FLOOR_STRENGTH = 6.4
 HEIGHT = 210
 WIDTH = 1144
 DUCT_FOAM_DEPTH = 10
@@ -18,15 +21,15 @@ CAVITY_HEIGHT = HEIGHT - FLOOR_STRENGTH * 2
 BASE_PLATE_DEPTH = 144
 BASE_PLATE_HEIGHT = 10
 BASE_PLATE_BEGIN = DEPTH - BASE_PLATE_DEPTH
-BASE_PLATE_EXTENSION = 15
+BASE_PLATE_EXTENSION = 12
 
 SIDES_WIDTH = 30
 
 from front.fanAssembly import FANASSEMBLY_CUTOUT_WIDTH
 
-SECTION1_WALL_STRENGTH = NOZZLE * 3
+THIN_WALL_ALONG_Y_STRENGTH = NOZZLE * 2
 
-SECTION15_WIDTH = FANASSEMBLY_CUTOUT_WIDTH + 2 * SECTION1_WALL_STRENGTH
+SECTION15_WIDTH = FANASSEMBLY_CUTOUT_WIDTH + 2 * THIN_WALL_ALONG_Y_STRENGTH
 
 SLOPE_SEAL_WIDTH = 256 - split.vbar.WIDTH - SECTION15_WIDTH
 
@@ -52,58 +55,80 @@ _DUCT_WIDTH = SECTION234_WIDTH * 2 + WALL_STRENGTH
 import duct.vane
 
 
-_FILTER_FAN_ASSEMBLY_GAP = NOZZLE * 12
+_FILTER_FAN_ASSEMBLY_GAP = M3_WALL_STRENGTH
 
-_FANASSEMBLY_CUTOUT_OFFSETY = WALL_STRENGTH
+_FANASSEMBLY_CUTOUT_OFFSETY = 8
 _FANASSEMBLY_CUTOUT_DEPTH = (
     DEPTH - front.filter.DEPTH - _FILTER_FAN_ASSEMBLY_GAP - _FANASSEMBLY_CUTOUT_OFFSETY
 )
 
-fanAssemblySet = front.fanAssembly.set(_FANASSEMBLY_CUTOUT_DEPTH).translate(
+fanAssemblySet = front.fanAssembly.set(
+    _FANASSEMBLY_CUTOUT_DEPTH, _FANASSEMBLY_CUTOUT_OFFSETY
+).translate(
     (
-        SIDES_WIDTH + SECTION1_WALL_STRENGTH,
+        SIDES_WIDTH + THIN_WALL_ALONG_Y_STRENGTH,
         _FANASSEMBLY_CUTOUT_OFFSETY,
-        HEIGHT - WALL_STRENGTH,
+        HEIGHT - FLOOR_STRENGTH,
     )
 )
 
 import front.elbow
 
-_ELBOW_WIDTH = SECTION15_WIDTH - WALL_STRENGTH * 2
+_ELBOW_WIDTH = SECTION15_WIDTH - WALL_STRENGTH * 2 - M3_WALL_STRENGTH
 
 
 elbowSet = front.elbow.make_elbow_set(
     _ELBOW_WIDTH, CAVITY_HEIGHT, DUCT_DEPTH, FOAM_THICKNESS, 20
 ).translate(
     (
-        WIDTH - SIDES_WIDTH - WALL_STRENGTH - _ELBOW_WIDTH,
+        WIDTH - SIDES_WIDTH - WALL_STRENGTH * 2 - _ELBOW_WIDTH,
         WALL_STRENGTH * 2,
         FLOOR_STRENGTH,
     )
 )
 
-from helmholtz.array import tuned_helmholtz_array
+import helmholtz.array
 
 
-def cavityCutouts():
+def cavity1(x, width):
+    c1 = shapes.box(
+        width - WALL_STRENGTH - THIN_WALL_ALONG_Y_STRENGTH,
+        FOAM_THICKNESS,
+        CAVITY_HEIGHT,
+    ).translate((x + WALL_STRENGTH, WALL_STRENGTH, FLOOR_STRENGTH))
 
-    result = shapes.box(
-        SECTION234_WIDTH - 2 * WALL_STRENGTH, FOAM_THICKNESS, CAVITY_HEIGHT
+    return c1
+
+
+def cavity2(x, width):
+    c2 = shapes.box(
+        width - M3_WALL_STRENGTH - THIN_WALL_ALONG_Y_STRENGTH,
+        FOAM_THICKNESS,
+        CAVITY_HEIGHT,
     ).translate(
         (
-            SIDES_WIDTH + SECTION15_WIDTH + WALL_STRENGTH,
+            x + M3_WALL_STRENGTH,
             DEPTH - FOAM_THICKNESS - WALL_STRENGTH,
             FLOOR_STRENGTH,
         )
     )
 
-    offset = 150
+    return c2
 
-    offsetHalf = 75
+
+def cavityCutouts():
+
+    result = cavity2(_SECTIONS[1][0], _SECTIONS[1][1])
+
+    offset = 135
+
+    offsetHalf = M3_WALL_STRENGTH
 
     result = result.union(
         shapes.box(
-            SECTION234_WIDTH - WALL_STRENGTH - offset, FOAM_THICKNESS, CAVITY_HEIGHT
+            SECTION234_WIDTH - THIN_WALL_ALONG_Y_STRENGTH - offset,
+            FOAM_THICKNESS,
+            CAVITY_HEIGHT,
         ).translate(
             (
                 SIDES_WIDTH + SECTION15_WIDTH + offset,
@@ -115,7 +140,7 @@ def cavityCutouts():
 
     result = result.union(
         shapes.box(
-            SECTION234_WIDTH - WALL_STRENGTH - offsetHalf,
+            SECTION234_WIDTH - THIN_WALL_ALONG_Y_STRENGTH - offsetHalf,
             FOAM_THICKNESS / 2,
             CAVITY_HEIGHT,
         ).translate(
@@ -128,17 +153,30 @@ def cavityCutouts():
     )
 
     for x, width in _SECTIONS[2:-1]:
-        c1 = shapes.box(
-            width - 2 * WALL_STRENGTH, FOAM_THICKNESS, CAVITY_HEIGHT
-        ).translate((x + WALL_STRENGTH, WALL_STRENGTH, FLOOR_STRENGTH))
+        result = result.union(cavity1(x, width)).union(cavity2(x, width))
 
-        c2 = shapes.box(
-            width - 2 * WALL_STRENGTH, FOAM_THICKNESS, CAVITY_HEIGHT
-        ).translate(
-            (x + WALL_STRENGTH, DEPTH - FOAM_THICKNESS - WALL_STRENGTH, FLOOR_STRENGTH)
-        )
+    return result
 
-        result = result.union(c1).union(c2)
+
+def necks1(x, width):
+    return helmholtz.array.tuned_helmholtz_array(
+        numX=5, numZ=5, width=width, depth=WALL_STRENGTH, height=CAVITY_HEIGHT
+    ).translate((x, WALL_STRENGTH + FOAM_THICKNESS, FLOOR_STRENGTH))
+
+
+def necks2(x, width):
+    return helmholtz.array.tuned_helmholtz_array(
+        numX=5, numZ=5, width=width, depth=WALL_STRENGTH, height=CAVITY_HEIGHT
+    ).translate((x, DEPTH - FOAM_THICKNESS - WALL_STRENGTH * 2, FLOOR_STRENGTH))
+
+
+def necks():
+    result = necks2(_SECTIONS[1][0], _SECTIONS[1][1])
+
+    for x, width in _SECTIONS[2:-1]:
+        n1 = necks1(x, width)
+        n2 = necks2(x, width)
+        result = result.union(n1).union(n2)
 
     return result
 
@@ -165,15 +203,16 @@ def _cutouts():
     )
 
     _cavityCutouts = cavityCutouts()
+    _neckCutouts = necks()
 
     return (
         expanderCutout.union(filterCutout)
         .union(fanAssemblySet.cutout)
         .union(expanderCutout)
         .union(_cavityCutouts)
+        .union(_neckCutouts)
         .union(ductCutout)
         .union(elbowSet.cutout)
-        # .union(helmholtzCutouts())
     )
 
 
@@ -214,45 +253,35 @@ def drillings():
         positions = []
 
         positions += [
-            (SIDES_WIDTH + external.m3.OFFSET, external.m3.OFFSET),
+            (SIDES_WIDTH + external.m3.TOP_OFFSET, external.m3.TOP_OFFSET),
             (
-                SIDES_WIDTH + external.m3.OFFSET,
+                SIDES_WIDTH + external.m3.TOP_OFFSET,
                 DEPTH - front.filter.DEPTH - _FILTER_FAN_ASSEMBLY_GAP / 2,
             ),
         ]
 
-        for x, _ in _SECTIONS[1:-1]:
+        for x, _ in _SECTIONS[1:]:
+            dOffset = WALL_STRENGTH + FOAM_THICKNESS * 1 / 3
             positions += [
-                (x + external.m3.OFFSET * 1.5, external.m3.OFFSET),
+                (x + external.m3.OFFSET, dOffset),
                 (
-                    x + external.m3.OFFSET * 1.5,
-                    DEPTH - external.m3.OFFSET,
+                    x + external.m3.OFFSET,
+                    DEPTH - dOffset,
                 ),
             ]
 
         positions += [
+            (WIDTH - SIDES_WIDTH - external.m3.TOP_OFFSET, DEPTH * 1 / 4),
             (
-                WIDTH - SIDES_WIDTH - SECTION15_WIDTH + external.m3.OFFSET,
-                WALL_STRENGTH + external.m3.OFFSET / 2,
-            ),
-            (
-                WIDTH - SIDES_WIDTH - SECTION15_WIDTH + external.m3.OFFSET * 1.5,
-                DEPTH - external.m3.OFFSET,
-            ),
-        ]
-
-        positions += [
-            (WIDTH - SIDES_WIDTH - external.m3.OFFSET, external.m3.OFFSET),
-            (
-                WIDTH - SIDES_WIDTH - external.m3.OFFSET,
-                DEPTH - external.m3.OFFSET,
+                WIDTH - SIDES_WIDTH - external.m3.TOP_OFFSET,
+                DEPTH * 3 / 4,
             ),
         ]
 
         result = cq.Workplane("XY")
 
         for x, y in positions:
-            s = external.m3.m3(50, WALL_STRENGTH)
+            s = external.m3.m3(50, FLOOR_STRENGTH)
             result = result.union(s.translate((x, y, HEIGHT)))
 
         return result
@@ -263,8 +292,46 @@ def drillings():
     return topDrillings()
 
 
-def splitXSides(slope):
-    plane = split.planeYZ(DEPTH + BASE_PLATE_DEPTH)
+def splitXSides(slopeDirection):
+    splitPlaneAndCutout = (
+        cq.Workplane("XZ")
+        .moveTo(-EPSILON * slopeDirection, HEIGHT)
+        .lineTo(-EPSILON * slopeDirection, 0)
+        .lineTo(
+            (SLOPE_SEAL_WIDTH - EPSILON) * slopeDirection,
+            -front.basePlate.FOAM_RIM_HEIGHT,
+        )
+        .lineTo(
+            (SLOPE_SEAL_WIDTH - EPSILON) * slopeDirection,
+            -BASE_PLATE_HEIGHT,
+        )  # ---------------------------------------------
+        .lineTo(
+            (SLOPE_SEAL_WIDTH + EPSILON) * slopeDirection,
+            -BASE_PLATE_HEIGHT,
+        )
+        .lineTo(
+            (SLOPE_SEAL_WIDTH + EPSILON) * slopeDirection,
+            -front.basePlate.FOAM_RIM_HEIGHT,
+        )
+        .lineTo(
+            (SLOPE_SEAL_WIDTH + front.basePlate.FOAM_RIM_INSET) * slopeDirection,
+            -front.basePlate.FOAM_RIM_HEIGHT,
+        )
+        .lineTo(
+            (SLOPE_SEAL_WIDTH + front.basePlate.FOAM_RIM_INSET) * slopeDirection,
+            0,
+        )
+        .lineTo(
+            EPSILON * slopeDirection,
+            0,
+        )
+        .lineTo(
+            EPSILON * slopeDirection,
+            HEIGHT,
+        )
+        .close()
+        .extrude(-BASE_PLATE_DEPTH - BASE_PLATE_EXTENSION)
+    ).translate((0, BASE_PLATE_BEGIN, 0))
 
     s1 = (
         external.m3.m3(50, WALL_STRENGTH)
@@ -290,30 +357,31 @@ def splitXSides(slope):
         )
     )
 
-    return plane.union(s1).union(s2)
+    return splitPlaneAndCutout.union(s1).union(s2)
 
 
 import external.m3
 
 
-def splitX():
-    contactArea = 2
-    plane = split.planeYZ(DEPTH + BASE_PLATE_DEPTH)
-    m = HEIGHT + BASE_PLATE_HEIGHT - WALL_STRENGTH
-    v1 = split.vbar.vbarDoubleFeature(
+def vbarFeature(x, y):
+    contactArea = 1.2
+    m = HEIGHT + BASE_PLATE_HEIGHT - FLOOR_STRENGTH
+    v = split.vbar.vbarDoubleFeature(
         HEIGHT + BASE_PLATE_HEIGHT, m, contactArea
-    ).translate((0, WALL_STRENGTH / 2, 0))
-    v2 = split.vbar.vbarDoubleFeature(
-        HEIGHT + BASE_PLATE_HEIGHT, m, contactArea
-    ).translate((0, FOAM_THICKNESS + WALL_STRENGTH * 1.5, 0))
-    v3 = split.vbar.vbarDoubleFeature(
-        HEIGHT + BASE_PLATE_HEIGHT, m, contactArea
-    ).translate((0, DEPTH - FOAM_THICKNESS - WALL_STRENGTH * 1.5, 0))
-    v4 = split.vbar.vbarDoubleFeature(
-        HEIGHT + BASE_PLATE_HEIGHT, m, contactArea
-    ).translate((0, DEPTH - WALL_STRENGTH / 2, 0))
+    ).translate((x, y, -BASE_PLATE_HEIGHT))
+    return v
 
-    features = v1.union(v2).union(v3).union(v4).translate((0, 0, -BASE_PLATE_HEIGHT))
+
+def splitX():
+    plane = split.planeYZ(DEPTH + BASE_PLATE_DEPTH)
+    v1 = vbarFeature(0, split.vbar.Y_OFFSET)
+    v2 = vbarFeature(0, WALL_STRENGTH * 2 + FOAM_THICKNESS - split.vbar.Y_OFFSET)
+    v3 = vbarFeature(
+        0, DEPTH - FOAM_THICKNESS - WALL_STRENGTH * 2 + split.vbar.Y_OFFSET
+    )
+    v4 = vbarFeature(0, DEPTH - split.vbar.Y_OFFSET)
+
+    features = v1.union(v2).union(v3).union(v4)
 
     splitter = split.bulge(plane, features)
 
@@ -332,35 +400,51 @@ def splitX():
     return splitter.union(s3)
 
 
+def reducedHrail(x, y, width):
+    height = HEIGHT - FLOOR_STRENGTH
+    reduced_width = width - WALL_STRENGTH * 4
+    return split.hbar.hbarFeature(reduced_width).translate(
+        (x + WALL_STRENGTH * 2, y, height)
+    )
+
+
 def hrails(width):
-    height = HEIGHT - WALL_STRENGTH
-    reduced_width = width - WALL_STRENGTH * 3
-    h1 = split.hbar.hbarFeature(reduced_width).translate((0, split.hbar.Y_OFFSET, 0))
-    h2 = split.hbar.hbarFeature(reduced_width).translate(
-        (0, WALL_STRENGTH + FOAM_THICKNESS + split.hbar.Y_OFFSET, 0)
+    h1 = reducedHrail(0, split.hbar.Y_OFFSET, width)
+    h2 = reducedHrail(
+        0, WALL_STRENGTH * 2 + FOAM_THICKNESS - split.hbar.Y_OFFSET, width
     )
-    h3 = split.hbar.hbarFeature(reduced_width).translate(
-        (0, DEPTH - FOAM_THICKNESS - WALL_STRENGTH - split.hbar.Y_OFFSET, 0)
+    h3 = reducedHrail(
+        0, DEPTH - WALL_STRENGTH * 2 - FOAM_THICKNESS + split.hbar.Y_OFFSET, width
     )
-    h4 = split.hbar.hbarFeature(reduced_width).translate(
-        (0, DEPTH - FOAM_THICKNESS - split.hbar.Y_OFFSET, 0)
-    )
-    return h1.union(h2).union(h3).union(h4).translate((WALL_STRENGTH * 1.5, 0, height))
+    h4 = reducedHrail(0, DEPTH - split.hbar.Y_OFFSET, width)
+    return h1.union(h2).union(h3).union(h4)
 
 
 def splitZ():
-    result = split.planeXY(WIDTH).translate((0, 0, HEIGHT - WALL_STRENGTH))
+    result = split.planeXY(WIDTH).translate((0, 0, HEIGHT - FLOOR_STRENGTH))
 
-    result = split.bulge(
-        result,
-        split.hbar.hbarFeature(SECTION15_WIDTH - WALL_STRENGTH * 3).translate(
-            (
-                SIDES_WIDTH + WALL_STRENGTH * 1.5,
-                split.hbar.Y_OFFSET,
-                HEIGHT - WALL_STRENGTH,
-            )
-        ),
+    s = split.sink(
+        SECTION15_WIDTH - 2 * front.filter.RIM, front.filter.DEPTH, front.filter.RIM
+    ).translate(
+        (
+            SIDES_WIDTH + front.filter.RIM,
+            DEPTH - front.filter.DEPTH,
+            HEIGHT - FLOOR_STRENGTH,
+        )
     )
+
+    h1 = reducedHrail(
+        SIDES_WIDTH + SECTION15_WIDTH * 1 / 16,
+        split.hbar.Y_OFFSET,
+        SECTION15_WIDTH * 6 / 16,
+    )
+    h2 = reducedHrail(
+        SIDES_WIDTH + SECTION15_WIDTH * 9 / 16,
+        split.hbar.Y_OFFSET,
+        SECTION15_WIDTH * 6 / 16,
+    )
+
+    result = split.bulge(result, h1.union(h2).union(s))
 
     for x, width in _SECTIONS[1:]:
         rails = hrails(width).translate((x, 0, 0))
@@ -385,5 +469,7 @@ def splitAll():
 
 
 def fullSplit():
-    result = full().cut(splitAll())
+    _splitall = splitAll()
+    _full = full()
+    result = _full.cut(_splitall)
     return result

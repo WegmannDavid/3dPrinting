@@ -23,4 +23,5 @@ def m3(height, freeHeight):
     return profile.revolve(360, (0, 0, 0), (0, 1, 0))
 
 
-OFFSET = 3.2 + NOZZLE * 2
+TOP_OFFSET = 3.2 + NOZZLE * 2
+OFFSET = _rad + NOZZLE * 2

@@ -21,7 +21,6 @@ def _shape1(height, width, depth):
 
 def vbar(height, contactArea):
     freeArea = height - WIDTH - _SIDES
-    contactArea = min(freeArea / 2, contactArea)
 
     middle = _shape1(height - LAYER * 3, WIDTH, _STRENGTH / 2)
     middle = middle.translate((0, 0, LAYER * 3))
@@ -30,10 +29,10 @@ def vbar(height, contactArea):
     side = side.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), -90)
     side = side.translate((WIDTH, -_STRENGTH / 2, WIDTH + LAYER * 3))
 
-    contact = _shape1(contactArea - LAYER * 3, NOZZLE, _STRENGTH)
+    contact = _shape1(contactArea, NOZZLE, _STRENGTH)
     contact = contact.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 180)
     contact = contact.translate(
-        (WIDTH - _STRENGTH, _SIDES - _STRENGTH / 2, height - contactArea + LAYER * 3)
+        (WIDTH - _STRENGTH, _SIDES - _STRENGTH / 2, height - contactArea)
     )
 
     half = middle.union(side).union(contact)
@@ -43,7 +42,6 @@ def vbar(height, contactArea):
 
 def vbarCutout(height, contactArea):
     freeArea = height - WIDTH - _SIDES
-    contactArea = min(freeArea / 2, contactArea)
 
     middle = _shape1(height - LAYER * 2, WIDTH + NOZZLE, _STRENGTH / 2 + EPSILON)
     middle = middle.translate((0, 0, LAYER * 2))
@@ -52,15 +50,17 @@ def vbarCutout(height, contactArea):
     side = side.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), -90)
     side = side.translate((WIDTH + NOZZLE, -_STRENGTH / 2, WIDTH + LAYER * 2))
 
-    contact = _shape1(
-        height - WIDTH - _SIDES - contactArea - LAYER * 2, NOZZLE, _SIDES + NOZZLE
-    )
+    side2 = _shape1(height - WIDTH - LAYER * 2, NOZZLE * 2, NOZZLE)
+    side2 = side2.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), -90)
+    side2 = side2.translate((NOZZLE * 3, -_STRENGTH / 2, WIDTH + LAYER * 2))
+
+    contact = _shape1(height - WIDTH - _SIDES - contactArea, NOZZLE, _SIDES + NOZZLE)
     contact = contact.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 180)
     contact = contact.translate(
-        (WIDTH - _STRENGTH, _STRENGTH / 2, WIDTH + _SIDES + contactArea + LAYER * 2)
+        (WIDTH - _STRENGTH, _STRENGTH / 2, WIDTH + _SIDES + contactArea)
     )
 
-    half = middle.union(side).union(contact)
+    half = middle.union(side).union(side2).union(contact)
     whole = half.union(half.mirror("XZ"))
     return whole
 

@@ -22,3 +22,11 @@ def planeXY(w):
         .extrude(2 * EPSILON)
         .translate((0, 0, -EPSILON))
     )
+
+
+import shapes
+
+
+def sink(width, depth, height):
+    s = shapes.openBox(width, 1, 1, depth, 1, 1, height, 1, 1, EPSILON * 2)
+    return s.translate((0, 0, -height + EPSILON))
