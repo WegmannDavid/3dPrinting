@@ -5,6 +5,7 @@ WIDTH = NOZZLE * 5  # accessible
 _SIDES = NOZZLE * 4  # private
 _STRENGTH = NOZZLE * 2  # private
 Y_OFFSET = NOZZLE * 8
+X_REQUIRED = WIDTH + NOZZLE * 3
 
 
 def _shape1(height, width, depth):

@@ -3,7 +3,7 @@ import split
 
 Y_EXTENSION = NOZZLE * 2  # accessible
 HEIGHT = NOZZLE * 5  # private
-Y_OFFSET = NOZZLE * 3 + Y_EXTENSION
+Y_OFFSET = NOZZLE * 4 + Y_EXTENSION
 
 
 def hbar(width):

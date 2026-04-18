@@ -20,5 +20,39 @@ def openBox(
     return volume.cut(cutout)
 
 
-def grid_plate(holes_x, holes_y, hole_diameter, width, height, depth):
-    return 0
+def rectTubeAlongY(width, depth, height, strength):
+    return box(width, depth, height).cut(
+        box(width - 2 * strength, depth, height - 2 * strength).translate(
+            (strength, 0, strength)
+        )
+    )
+
+
+def rectPatterXZ(width, depth, height, nX, nZ, gap):
+    cellWidth = (width - gap * (nX - 1)) / nX
+    cellHeight = (height - gap * (nZ - 1)) / nZ
+
+    cellOffsetX = cellWidth + gap
+    cellOffsetZ = cellHeight + gap
+
+    result = cq.Workplane("XY")
+
+    for i in range(nX):
+        for j in range(nZ):
+            result = result.union(
+                box(cellWidth, depth, cellHeight).translate(
+                    (i * cellOffsetX, 0, j * cellOffsetZ)
+                )
+            )
+
+    return result
+
+
+def rectPatterXY(width, depth, height, nX, nY, gap):
+    patterXZ = rectPatterXZ(width, depth, height, nX, nY, gap)
+    result = patterXZ.rotate((0, 0, 0), (1, 0, 0), 90)
+    return result
+
+
+def cylinder(radius, height):
+    return cq.Workplane("XY").circle(radius).extrude(height)

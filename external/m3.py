@@ -1,27 +1,18 @@
 from prelude import *
+import external.sunkhead
 
-_freeRad = 1.75
-_HeadRad = 3.2
-_HeadFlatHeight = 0.8
+_freeRad = 1.6
+_HeadRad = 3.1
+_HeadHeight = 0.4
 _rad = 1.2
 
 
 def m3(height, freeHeight):
-    headEndHeight = _HeadRad - _freeRad + _HeadFlatHeight
-    profile = (
-        cq.Workplane("YZ")
-        .moveTo(0, 0)
-        .lineTo(_HeadRad, 0)
-        .lineTo(_HeadRad, -_HeadFlatHeight)
-        .lineTo(_freeRad, -headEndHeight)
-        .lineTo(_freeRad, -freeHeight)
-        .lineTo(_rad, -freeHeight)
-        .lineTo(_rad, -height)
-        .lineTo(0, -height)
-        .close()
+    return external.sunkhead.sunkhead(
+        _HeadRad, _HeadHeight, _freeRad, freeHeight, _rad, height
     )
-    return profile.revolve(360, (0, 0, 0), (0, 1, 0))
 
 
-TOP_OFFSET = 3.2 + NOZZLE * 2
+FREE_OFFSET = _freeRad + NOZZLE * 2
+TOP_OFFSET = _HeadRad + NOZZLE * 2
 OFFSET = _rad + NOZZLE * 2

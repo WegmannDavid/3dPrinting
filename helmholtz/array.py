@@ -25,19 +25,21 @@ def vNeck(depth, width, height, wall_thickness, extension):
 
 
 def rectVNeck(depth, height, wall_thickness, extension):
-    return vNeck(depth, depth - wall_thickness * 2, height, wall_thickness, extension)
+    width = depth - wall_thickness * 2
+    n = vNeck(depth, width, height, wall_thickness, extension)
+    return n.rotate((0, 0, 0), (0, 1, 0), 45).translate((width, 0, width))
 
 
 def helmholtz_array(numX, numZ, width, depth, height, lengths):
     offsetX = width / numX
     offsetZ = height / numZ
-    startX = offsetZ / 2
+    startX = 0
     startZ = 0
 
     necks = []
     for j in range(numZ):
         for i in range(numX):
-            l = lengths[i + j * numX]
+            l = lengths[j, i]
             necks.append(
                 rectVNeck(depth, l, NOZZLE * 2, 10).translate(
                     (startX + i * offsetX, 0, startZ + j * offsetZ)
@@ -46,12 +48,18 @@ def helmholtz_array(numX, numZ, width, depth, height, lengths):
     return functools.reduce(lambda a, b: a.union(b), necks)
 
 
+def sample_neck_lengths_2d(l1, l2, nX, nZ, seed=42):
+    u = np.linspace(0, 1, nX * nZ)
+    L = (1 / np.sqrt(l1) - u * (1 / np.sqrt(l1) - 1 / np.sqrt(l2))) ** (-2)
+    rng = np.random.default_rng(seed)
+    rng.shuffle(L)
+    return L.reshape(nZ, nX)
+
+
 def tuned_helmholtz_array(numX, numZ, width, depth, height):
-    l_min = 35  # 50 mm
-    l_max = 35  # 50 mm
-    beta = 4.0  # increase for more aggressive skew toward small holes
-    u = np.random.uniform(0, 1, numX * numZ) ** beta
-    diameters = l_min * (l_max / l_min) ** u
+    l_min = 5  # 50 mm
+    l_max = 20  # 50 mm
+    diameters = sample_neck_lengths_2d(l_min, l_max, numX, numZ)
     return helmholtz_array(numX, numZ, width, depth, height, diameters)
 
 

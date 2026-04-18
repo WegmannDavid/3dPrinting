@@ -29,23 +29,34 @@ class ElbowSet:
         )
 
 
+def supportHexagon(size, innerSize, depth):
+    support = (
+        cq.Workplane("XZ")
+        .moveTo(-innerSize, -innerSize)
+        .lineTo(-innerSize, innerSize)
+        .lineTo(size - innerSize * 2, size)
+        .lineTo(size, size)
+        .lineTo(size, size - innerSize * 2)
+        .lineTo(innerSize, -innerSize)
+        .close()
+        .extrude(depth)
+    )
+    return support
+
+
 def make_elbow_set(width, size, duct_depth, foam_depth, num_vanes):
 
     vane_size = duct.vane.vaneSize(size, num_vanes)
 
     def vanes():
-        v = duct.vane.vanes(size, duct_depth, num_vanes)
-        support = (
-            cq.Workplane("XZ")
-            .moveTo(-vane_size, -vane_size)
-            .lineTo(-vane_size, vane_size)
-            .lineTo(size - vane_size * 2, size)
-            .lineTo(size, size)
-            .lineTo(size, size - vane_size * 2)
-            .lineTo(vane_size, -vane_size)
-            .close()
-            .extrude(SUPPORT_THICKNESS)
+        v = duct.vane.vanes(
+            size, duct_depth + SUPPORT_THICKNESS * 2, num_vanes
+        ).translate((0, -SUPPORT_THICKNESS, 0))
+        support = supportHexagon(size, vane_size, SUPPORT_THICKNESS)
+        supportCutout = supportHexagon(
+            size, vane_size - SUPPORT_THICKNESS * 2, SUPPORT_THICKNESS
         )
+        support = support.cut(supportCutout)
         result = v.union(support)
         return result
 
@@ -83,13 +94,13 @@ def make_elbow_set(width, size, duct_depth, foam_depth, num_vanes):
 
     outletCutout = shapes.box(size, duct_depth, size).translate(
         (
-            width - size,
+            width - size - GAP_FOAM_THICKNESS,
             foam_depth,
             -size - GAP_FOAM_THICKNESS,
         )
     )
 
-    v = vanes().translate((width - size, foam_depth, 0))
+    v = vanes().translate((width - size - GAP_FOAM_THICKNESS, foam_depth, 0))
     c = cutout().union(outletCutout)
     f = foam()
     p = port()

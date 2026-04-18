@@ -1,475 +1,309 @@
-from unittest import result
+import math
 
 from prelude import *
-import split.vbar
-import duct.solid
 
-import external.m3
+import external.fan.Axial60x60x25mm
 
-WALL_STRENGTH = NOZZLE * 10
-M3_WALL_STRENGTH = external.m3.OFFSET * 2
-FLOOR_STRENGTH = 6.4
-HEIGHT = 210
-WIDTH = 1144
-DUCT_FOAM_DEPTH = 10
-FOAM_THICKNESS = 20
-DUCT_DEPTH = 20
-DEPTH = DUCT_DEPTH + FOAM_THICKNESS * 2 + WALL_STRENGTH * 4
-CAVITY_HEIGHT = HEIGHT - FLOOR_STRENGTH * 2
-
-
-BASE_PLATE_DEPTH = 144
-BASE_PLATE_HEIGHT = 10
-BASE_PLATE_BEGIN = DEPTH - BASE_PLATE_DEPTH
-BASE_PLATE_EXTENSION = 12
-
-SIDES_WIDTH = 30
-
-from front.fanAssembly import FANASSEMBLY_CUTOUT_WIDTH
-
-THIN_WALL_ALONG_Y_STRENGTH = NOZZLE * 2
-
-SECTION15_WIDTH = FANASSEMBLY_CUTOUT_WIDTH + 2 * THIN_WALL_ALONG_Y_STRENGTH
-
-SLOPE_SEAL_WIDTH = 256 - split.vbar.WIDTH - SECTION15_WIDTH
-
-SECTION234_WIDTH = (WIDTH - (SIDES_WIDTH + SECTION15_WIDTH) * 2) / 3
-
-_SECTIONS = [
-    (SIDES_WIDTH, SECTION15_WIDTH),
-    (SIDES_WIDTH + SECTION15_WIDTH, SECTION234_WIDTH),
-    (SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH, SECTION234_WIDTH),
-    (SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH * 2, SECTION234_WIDTH),
-    (SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH * 3, SECTION15_WIDTH),
-]
-
-
-import front.fanAssembly
-import front.filter
-import front.basePlate
+import loft
 import shapes
 
+import front.filter
 
-_DUCT_WIDTH = SECTION234_WIDTH * 2 + WALL_STRENGTH
+WALL_STRENGTH = NOZZLE * 3
 
-import duct.vane
+HEIGHT = 210
+EXPANDER_HEIGHT = 120
+INNER_EXPANDER_HEIGHT = EXPANDER_HEIGHT - WALL_STRENGTH
+
+HEAD_HEIGHT = 90
+INNER_HEIGHT_ABOVE_FILTER = HEAD_HEIGHT - WALL_STRENGTH
+
+FILTER_HEIGHT = HEIGHT - HEAD_HEIGHT
+
+BASEPLATE_HEIGHT = 10
+
+DEPTH = 70
+DEPTH_EXTENSION = 10
+INNER_EXTENDED_DEPTH = DEPTH + DEPTH_EXTENSION - 2 * WALL_STRENGTH
+INNER_DEPTH = DEPTH - 2 * WALL_STRENGTH
 
 
-_FILTER_FAN_ASSEMBLY_GAP = M3_WALL_STRENGTH
-
-_FANASSEMBLY_CUTOUT_OFFSETY = 8
-_FANASSEMBLY_CUTOUT_DEPTH = (
-    DEPTH - front.filter.DEPTH - _FILTER_FAN_ASSEMBLY_GAP - _FANASSEMBLY_CUTOUT_OFFSETY
+OUTLET_DUCT_DEPTH = 5
+FOAM_DEPTH = 30
+FILTER_DEPTH = 15
+FILTER_DUCT_OFFSET = (
+    WALL_STRENGTH + OUTLET_DUCT_DEPTH + WALL_STRENGTH + FOAM_DEPTH + WALL_STRENGTH
 )
+FILTER_DUCT_DEPTH = DEPTH - FILTER_DUCT_OFFSET - FILTER_DEPTH
+FILTER_DUCT_RAD = 2
+FILTER_OFFSET = DEPTH - FILTER_DEPTH
 
-fanAssemblySet = front.fanAssembly.set(
-    _FANASSEMBLY_CUTOUT_DEPTH, _FANASSEMBLY_CUTOUT_OFFSETY
-).translate(
-    (
-        SIDES_WIDTH + THIN_WALL_ALONG_Y_STRENGTH,
-        _FANASSEMBLY_CUTOUT_OFFSETY,
-        HEIGHT - FLOOR_STRENGTH,
-    )
-)
+SQRT2 = math.sqrt(2)
 
-import front.elbow
+LONG_OFFSET = external.fan.Axial60x60x25mm.CUTOUT_SIZE * (SQRT2 / 2)
+SHORT_OFFSET = external.fan.Axial60x60x25mm.CUTOUT_LENGTH * (SQRT2 / 2)
 
-_ELBOW_WIDTH = SECTION15_WIDTH - WALL_STRENGTH * 2 - M3_WALL_STRENGTH
+TOP_HEIGHT = SHORT_OFFSET + WALL_STRENGTH
 
 
-elbowSet = front.elbow.make_elbow_set(
-    _ELBOW_WIDTH, CAVITY_HEIGHT, DUCT_DEPTH, FOAM_THICKNESS, 20
-).translate(
-    (
-        WIDTH - SIDES_WIDTH - WALL_STRENGTH * 2 - _ELBOW_WIDTH,
-        WALL_STRENGTH * 2,
-        FLOOR_STRENGTH,
-    )
-)
+def duct(OUTLET_X1, OUTLET_X2, INLET_X1, INLET_X2):
 
-import helmholtz.array
+    OUTLET_WIDTH = OUTLET_X2 - OUTLET_X1
+    INLET_WIDTH = INLET_X2 - INLET_X1
 
+    INLET_MIDDLE_X = INLET_X1 + INLET_WIDTH / 2
+    INLET_REFERENCE_POINT = (INLET_MIDDLE_X, INNER_EXTENDED_DEPTH, 0)
 
-def cavity1(x, width):
-    c1 = shapes.box(
-        width - WALL_STRENGTH - THIN_WALL_ALONG_Y_STRENGTH,
-        FOAM_THICKNESS,
-        CAVITY_HEIGHT,
-    ).translate((x + WALL_STRENGTH, WALL_STRENGTH, FLOOR_STRENGTH))
-
-    return c1
-
-
-def cavity2(x, width):
-    c2 = shapes.box(
-        width - M3_WALL_STRENGTH - THIN_WALL_ALONG_Y_STRENGTH,
-        FOAM_THICKNESS,
-        CAVITY_HEIGHT,
-    ).translate(
-        (
-            x + M3_WALL_STRENGTH,
-            DEPTH - FOAM_THICKNESS - WALL_STRENGTH,
-            FLOOR_STRENGTH,
-        )
-    )
-
-    return c2
-
-
-def cavityCutouts():
-
-    result = cavity2(_SECTIONS[1][0], _SECTIONS[1][1])
-
-    offset = 135
-
-    offsetHalf = M3_WALL_STRENGTH
-
-    result = result.union(
-        shapes.box(
-            SECTION234_WIDTH - THIN_WALL_ALONG_Y_STRENGTH - offset,
-            FOAM_THICKNESS,
-            CAVITY_HEIGHT,
-        ).translate(
-            (
-                SIDES_WIDTH + SECTION15_WIDTH + offset,
-                WALL_STRENGTH,
-                FLOOR_STRENGTH,
-            )
-        )
-    )
-
-    result = result.union(
-        shapes.box(
-            SECTION234_WIDTH - THIN_WALL_ALONG_Y_STRENGTH - offsetHalf,
-            FOAM_THICKNESS / 2,
-            CAVITY_HEIGHT,
-        ).translate(
-            (
-                SIDES_WIDTH + SECTION15_WIDTH + offsetHalf,
-                WALL_STRENGTH,
-                FLOOR_STRENGTH,
-            )
-        )
-    )
-
-    for x, width in _SECTIONS[2:-1]:
-        result = result.union(cavity1(x, width)).union(cavity2(x, width))
-
-    return result
-
-
-def necks1(x, width):
-    return helmholtz.array.tuned_helmholtz_array(
-        numX=5, numZ=5, width=width, depth=WALL_STRENGTH, height=CAVITY_HEIGHT
-    ).translate((x, WALL_STRENGTH + FOAM_THICKNESS, FLOOR_STRENGTH))
-
-
-def necks2(x, width):
-    return helmholtz.array.tuned_helmholtz_array(
-        numX=5, numZ=5, width=width, depth=WALL_STRENGTH, height=CAVITY_HEIGHT
-    ).translate((x, DEPTH - FOAM_THICKNESS - WALL_STRENGTH * 2, FLOOR_STRENGTH))
-
-
-def necks():
-    result = necks2(_SECTIONS[1][0], _SECTIONS[1][1])
-
-    for x, width in _SECTIONS[2:-1]:
-        n1 = necks1(x, width)
-        n2 = necks2(x, width)
-        result = result.union(n1).union(n2)
-
-    return result
-
-
-def _cutouts():
-    filterCutout = filter.cutout.translate((SIDES_WIDTH, 0, 0))
-
-    ductInPort = duct.solid.RectPort(
-        width=DUCT_DEPTH,
-        height=CAVITY_HEIGHT,
-        x=SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH,
-        y=WALL_STRENGTH * 2 + FOAM_THICKNESS,
-        z=FLOOR_STRENGTH,
-    )
-
-    expanderCutout = duct.solid.rectDuctYZAlongX(fanAssemblySet.port, ductInPort)
-
-    ductCutout = shapes.box(_DUCT_WIDTH, DUCT_DEPTH, CAVITY_HEIGHT).translate(
-        (
-            SIDES_WIDTH + SECTION15_WIDTH + SECTION234_WIDTH,
-            WALL_STRENGTH * 2 + FOAM_THICKNESS,
-            FLOOR_STRENGTH,
-        )
-    )
-
-    _cavityCutouts = cavityCutouts()
-    _neckCutouts = necks()
-
-    return (
-        expanderCutout.union(filterCutout)
-        .union(fanAssemblySet.cutout)
-        .union(expanderCutout)
-        .union(_cavityCutouts)
-        .union(_neckCutouts)
-        .union(ductCutout)
-        .union(elbowSet.cutout)
-    )
-
-
-def full():
-    base = (
-        shapes.box(WIDTH - 2 * SIDES_WIDTH, DEPTH, HEIGHT)
-        .translate((SIDES_WIDTH, 0, 0))
-        .union(front.basePlate.basePlate(WIDTH))
-    )
-    cutouts = _cutouts()
-    _full = base.cut(cutouts)
-
-    _fanAssembly = fanAssemblySet.fanAssembly
-    _fanAssemblyCover = fanAssemblySet.cover
-
-    return _full  # .union(_fanAssembly)
-
-
-def femFoam():
-    return elbowSet.foam.union(cavityCutouts())
-
-
-def fem():
-    damperPart = shapes.box(
-        WIDTH - 2 * SIDES_WIDTH - SECTION15_WIDTH, DEPTH, BASE_PLATE_HEIGHT + HEIGHT
-    ).translate((SIDES_WIDTH + SECTION15_WIDTH, 0, -BASE_PLATE_HEIGHT))
-    return damperPart.cut(full().union(elbowSet.vanes)).cut(femFoam())
-
-
-import split
-import split.vbar
-import split.hbar
-
-
-def drillings():
-    def topDrillings():
-
-        positions = []
-
-        positions += [
-            (SIDES_WIDTH + external.m3.TOP_OFFSET, external.m3.TOP_OFFSET),
-            (
-                SIDES_WIDTH + external.m3.TOP_OFFSET,
-                DEPTH - front.filter.DEPTH - _FILTER_FAN_ASSEMBLY_GAP / 2,
-            ),
+    def rectBeforeBendPoints():
+        Z = HEIGHT - HEAD_HEIGHT
+        Y1 = FILTER_DUCT_OFFSET
+        Y2 = Y1 + FILTER_DUCT_DEPTH - FILTER_DUCT_RAD
+        return [
+            (INLET_X2, Y1, Z - front.filter.RIM),
+            (INLET_X1, Y1, Z - front.filter.RIM),
+            (INLET_X1, Y2, Z - front.filter.RIM + FILTER_DUCT_RAD * 2),
+            (INLET_X2, Y2, Z - front.filter.RIM + FILTER_DUCT_RAD * 2),
         ]
 
-        for x, _ in _SECTIONS[1:]:
-            dOffset = WALL_STRENGTH + FOAM_THICKNESS * 1 / 3
-            positions += [
-                (x + external.m3.OFFSET, dOffset),
-                (
-                    x + external.m3.OFFSET,
-                    DEPTH - dOffset,
-                ),
+    def head():
+        HEAD_OFFSET = (0, WALL_STRENGTH, HEIGHT - WALL_STRENGTH)
+
+        COMBINED_OFFSET = LONG_OFFSET + SHORT_OFFSET
+
+        OUTLET_MIDDLE_X = OUTLET_X1 + OUTLET_WIDTH / 2
+
+        FAN_MIDDLE_X = (OUTLET_MIDDLE_X + INLET_MIDDLE_X) / 2
+
+        FAN_OFFSET_X = FAN_MIDDLE_X - external.fan.Axial60x60x25mm.CUTOUT_SIZE / 2
+
+        fanSet = (
+            external.fan.Axial60x60x25mm.set()
+            .rotate(axisStartPoint=(0, 0, 0), axisEndPoint=(1, 0, 0), angleDegrees=-45)
+            .translate((FAN_OFFSET_X, 0, -SHORT_OFFSET))
+        )
+
+        OUTLET_REFERENCE_POINT = (OUTLET_MIDDLE_X, 0, 0)
+        REFERENCE_POINT_FAN = (FAN_MIDDLE_X, 0, 0)
+
+        EXPANDER_Y = -INNER_EXPANDER_HEIGHT
+
+        def rectAfterFan():
+            return loft.polygon_endpoint(
+                [
+                    (OUTLET_X2, 0, EXPANDER_Y),
+                    (OUTLET_X1, 0, EXPANDER_Y),
+                    (OUTLET_X1, OUTLET_DUCT_DEPTH, EXPANDER_Y),
+                    (OUTLET_X2, OUTLET_DUCT_DEPTH, EXPANDER_Y),
+                ],
+                [
+                    (0, 0, EXPANDER_Y / 2),
+                    (0, 0, EXPANDER_Y / 2),
+                    (0, 0, EXPANDER_Y / 6),
+                    (0, 0, EXPANDER_Y / 6),
+                ],
+                OUTLET_REFERENCE_POINT,
+            )
+
+        def rectBeforeFan():
+            D = (
+                external.fan.Axial60x60x25mm.CUTOUT_SIZE
+                - external.fan.Axial60x60x25mm.CUTOUT_DUCT_INSET
+            )
+            Y = COMBINED_OFFSET
+            Z = -D * (SQRT2 / 2)
+
+            return loft.polygon_endpoint(
+                [
+                    (INLET_X2, Y, Z),
+                    (INLET_X1, Y, Z),
+                    (INLET_X1, Y, 0),
+                    (INLET_X2, Y, 0),
+                ],
+                [
+                    (0, 1, -1),
+                    (0, 1, -1),
+                    (0, INNER_EXTENDED_DEPTH - Y, 0),
+                    (0, INNER_EXTENDED_DEPTH - Y, 0),
+                ],
+                INLET_REFERENCE_POINT,
+            )
+
+        def rectBeforeEllbowPoints():
+            Z = -LONG_OFFSET
+            Y1 = COMBINED_OFFSET + WALL_STRENGTH
+            Y2 = INNER_EXTENDED_DEPTH
+            return [
+                (INLET_X2, Y1, Z),
+                (INLET_X1, Y1, Z),
+                (INLET_X1, Y2, Z),
+                (INLET_X2, Y2, Z),
             ]
 
-        positions += [
-            (WIDTH - SIDES_WIDTH - external.m3.TOP_OFFSET, DEPTH * 1 / 4),
-            (
-                WIDTH - SIDES_WIDTH - external.m3.TOP_OFFSET,
-                DEPTH * 3 / 4,
+        def rectBeforeEllbow1():
+            Z = -LONG_OFFSET
+            return loft.polygon_endpoint(
+                rectBeforeEllbowPoints(),
+                [
+                    (0, 0, -1),
+                    (0, 0, -1),
+                    (0, 0, Z / 2),
+                    (0, 0, Z / 2),
+                ],
+                INLET_REFERENCE_POINT,
+            )
+
+        def rectBeforeEllbow2():
+            return loft.polygon_endpoint(
+                rectBeforeEllbowPoints(),
+                [
+                    (0, 0, -SHORT_OFFSET / 3),
+                    (0, 0, -SHORT_OFFSET / 3),
+                    (0, 0, -SHORT_OFFSET / 2),
+                    (0, 0, -SHORT_OFFSET / 2),
+                ],
+                INLET_REFERENCE_POINT,
+            )
+
+        def rectBeforeBend():
+            return loft.polygon_endpoint(
+                translate_points(rectBeforeBendPoints(), negative_point(HEAD_OFFSET)),
+                [
+                    (0, 0, -SHORT_OFFSET / 2 - front.front.filter.RIM),
+                    (0, 0, -SHORT_OFFSET / 2 - front.front.filter.RIM),
+                    (0, 0, -SHORT_OFFSET),
+                    (0, 0, -SHORT_OFFSET),
+                ],
+                INLET_REFERENCE_POINT,
+            )
+
+        reducer = loft.closed_bezier_loft(
+            loft.circular_port_to_endpoint(
+                fanSet.bottomPort,
+                start_reference=REFERENCE_POINT_FAN,
+                tangent_length=external.fan.Axial60x60x25mm.CUTOUT_DUCT_INSET
+                * (SQRT2 / 2),
             ),
-        ]
-
-        result = cq.Workplane("XY")
-
-        for x, y in positions:
-            s = external.m3.m3(50, FLOOR_STRENGTH)
-            result = result.union(s.translate((x, y, HEIGHT)))
-
-        return result
-
-    def basePlateDrillings():
-        return 0
-
-    return topDrillings()
-
-
-def splitXSides(slopeDirection):
-    splitPlaneAndCutout = (
-        cq.Workplane("XZ")
-        .moveTo(-EPSILON * slopeDirection, HEIGHT)
-        .lineTo(-EPSILON * slopeDirection, 0)
-        .lineTo(
-            (SLOPE_SEAL_WIDTH - EPSILON) * slopeDirection,
-            -front.basePlate.FOAM_RIM_HEIGHT,
+            rectAfterFan(),
         )
-        .lineTo(
-            (SLOPE_SEAL_WIDTH - EPSILON) * slopeDirection,
-            -BASE_PLATE_HEIGHT,
-        )  # ---------------------------------------------
-        .lineTo(
-            (SLOPE_SEAL_WIDTH + EPSILON) * slopeDirection,
-            -BASE_PLATE_HEIGHT,
-        )
-        .lineTo(
-            (SLOPE_SEAL_WIDTH + EPSILON) * slopeDirection,
-            -front.basePlate.FOAM_RIM_HEIGHT,
-        )
-        .lineTo(
-            (SLOPE_SEAL_WIDTH + front.basePlate.FOAM_RIM_INSET) * slopeDirection,
-            -front.basePlate.FOAM_RIM_HEIGHT,
-        )
-        .lineTo(
-            (SLOPE_SEAL_WIDTH + front.basePlate.FOAM_RIM_INSET) * slopeDirection,
-            0,
-        )
-        .lineTo(
-            EPSILON * slopeDirection,
-            0,
-        )
-        .lineTo(
-            EPSILON * slopeDirection,
-            HEIGHT,
-        )
-        .close()
-        .extrude(-BASE_PLATE_DEPTH - BASE_PLATE_EXTENSION)
-    ).translate((0, BASE_PLATE_BEGIN, 0))
 
-    s1 = (
-        external.m3.m3(50, WALL_STRENGTH)
-        .mirror("XY")
-        .translate(
-            (
-                -SIDES_WIDTH / 2,
-                BASE_PLATE_BEGIN + external.m3.OFFSET * 1.5,
-                -BASE_PLATE_HEIGHT,
-            )
+        expander = loft.closed_bezier_loft(
+            loft.circular_port_to_endpoint(
+                fanSet.topPort,
+                start_reference=REFERENCE_POINT_FAN,
+                tangent_length=external.fan.Axial60x60x25mm.CUTOUT_DUCT_INSET
+                * (SQRT2 / 2)
+                / 2,
+            ),
+            rectBeforeFan(),
         )
+
+        ellbow = loft.closed_bezier_loft(rectBeforeFan(), rectBeforeEllbow1())
+
+        bend = loft.closed_bezier_loft(rectBeforeEllbow2(), rectBeforeBend())
+
+        fanCutout = fanSet.cutout
+
+        return translate_all((bend, ellbow, expander, fanCutout, reducer), HEAD_OFFSET)
+
+    bend, ellbow, expander, fanCutout, reducer = head()
+
+    outletDuct = shapes.box(
+        OUTLET_WIDTH, OUTLET_DUCT_DEPTH, BASEPLATE_HEIGHT + HEIGHT - EXPANDER_HEIGHT
+    ).translate((OUTLET_X1, WALL_STRENGTH, -BASEPLATE_HEIGHT))
+
+    FILTER_RECT_HEIGHT = FILTER_HEIGHT - front.filter.RIM * 2
+
+    def rectBeforeBend():
+        return loft.polygon_endpoint(
+            rectBeforeBendPoints(),
+            [
+                (0, 0, -FILTER_RECT_HEIGHT),
+                (0, 0, -FILTER_RECT_HEIGHT),
+                (0, 0, -FILTER_DUCT_RAD),
+                (0, 0, -FILTER_DUCT_RAD),
+            ],
+            (0, 0, 0),
+        )
+
+    def filterRect():
+        Z1 = front.filter.RIM
+        Z2 = FILTER_HEIGHT - front.filter.RIM
+        return loft.polygon_endpoint(
+            [
+                (INLET_X2, FILTER_OFFSET, Z1),
+                (INLET_X1, FILTER_OFFSET, Z1),
+                (INLET_X1, FILTER_OFFSET, Z2),
+                (INLET_X2, FILTER_OFFSET, Z2),
+            ],
+            [
+                (0, FILTER_DUCT_DEPTH / 2, 0),
+                (0, FILTER_DUCT_DEPTH / 2, 0),
+                (0, FILTER_DUCT_RAD / 2, 0),
+                (0, FILTER_DUCT_RAD / 2, 0),
+            ],
+            (0, 0, 0),
+        )
+
+    filterDuct = loft.closed_bezier_loft(rectBeforeBend(), filterRect())
+
+    foam = shapes.box(INLET_WIDTH, FOAM_DEPTH, 90).translate(
+        (INLET_X1, WALL_STRENGTH * 2 + OUTLET_DUCT_DEPTH, 0)
     )
 
-    s2 = (
-        external.m3.m3(50, WALL_STRENGTH)
-        .mirror("XY")
-        .translate(
-            (
-                SIDES_WIDTH / 2,
-                BASE_PLATE_BEGIN + external.m3.OFFSET * 1.5,
-                -BASE_PLATE_HEIGHT,
-            )
-        )
+    return (
+        bend.union(ellbow)
+        .union(expander)
+        .union(fanCutout)
+        .union(reducer)
+        .union(outletDuct)
+        .union(filterDuct)
     )
-
-    return splitPlaneAndCutout.union(s1).union(s2)
 
 
 import external.m3
+import split
+import export
 
 
-def vbarFeature(x, y):
-    contactArea = 1.2
-    m = HEIGHT + BASE_PLATE_HEIGHT - FLOOR_STRENGTH
-    v = split.vbar.vbarDoubleFeature(
-        HEIGHT + BASE_PLATE_HEIGHT, m, contactArea
-    ).translate((x, y, -BASE_PLATE_HEIGHT))
-    return v
-
-
-def splitX():
-    plane = split.planeYZ(DEPTH + BASE_PLATE_DEPTH)
-    v1 = vbarFeature(0, split.vbar.Y_OFFSET)
-    v2 = vbarFeature(0, WALL_STRENGTH * 2 + FOAM_THICKNESS - split.vbar.Y_OFFSET)
-    v3 = vbarFeature(
-        0, DEPTH - FOAM_THICKNESS - WALL_STRENGTH * 2 + split.vbar.Y_OFFSET
-    )
-    v4 = vbarFeature(0, DEPTH - split.vbar.Y_OFFSET)
-
-    features = v1.union(v2).union(v3).union(v4)
-
-    splitter = split.bulge(plane, features)
-
-    s3 = (
-        external.m3.m3(50, WALL_STRENGTH)
-        .mirror("XY")
-        .translate(
-            (
-                external.m3.OFFSET * 1.5,
-                BASE_PLATE_BEGIN + external.m3.OFFSET * 1.5,
-                -BASE_PLATE_HEIGHT,
-            )
-        )
+def test():
+    d = duct(5, 75, 5, 75)
+    volume = (
+        cq.Workplane("YZ")
+        .moveTo(0, 0)
+        .lineTo(0, HEIGHT)
+        .lineTo(DEPTH + DEPTH_EXTENSION, HEIGHT)
+        .lineTo(DEPTH + DEPTH_EXTENSION, FILTER_HEIGHT + FILTER_DEPTH + DEPTH_EXTENSION)
+        .lineTo(DEPTH - FILTER_DEPTH, FILTER_HEIGHT - front.filter.RIM)
+        .lineTo(DEPTH - FILTER_DEPTH, 0)
+        .close()
+        .extrude(80)
     )
 
-    return splitter.union(s3)
+    screwCutout = external.m3.m3(50, TOP_HEIGHT).translate((0, 0, HEIGHT))
 
-
-def reducedHrail(x, y, width):
-    height = HEIGHT - FLOOR_STRENGTH
-    reduced_width = width - WALL_STRENGTH * 4
-    return split.hbar.hbarFeature(reduced_width).translate(
-        (x + WALL_STRENGTH * 2, y, height)
+    s1 = screwCutout.translate((external.m3.TOP_OFFSET, external.m3.TOP_OFFSET, 0))
+    s2 = screwCutout.translate((80 - external.m3.TOP_OFFSET, external.m3.TOP_OFFSET, 0))
+    s3 = screwCutout.translate(
+        (external.m3.TOP_OFFSET, (DEPTH + DEPTH_EXTENSION) * 3 / 4, 0)
     )
-
-
-def hrails(width):
-    h1 = reducedHrail(0, split.hbar.Y_OFFSET, width)
-    h2 = reducedHrail(
-        0, WALL_STRENGTH * 2 + FOAM_THICKNESS - split.hbar.Y_OFFSET, width
-    )
-    h3 = reducedHrail(
-        0, DEPTH - WALL_STRENGTH * 2 - FOAM_THICKNESS + split.hbar.Y_OFFSET, width
-    )
-    h4 = reducedHrail(0, DEPTH - split.hbar.Y_OFFSET, width)
-    return h1.union(h2).union(h3).union(h4)
-
-
-def splitZ():
-    result = split.planeXY(WIDTH).translate((0, 0, HEIGHT - FLOOR_STRENGTH))
-
-    s = split.sink(
-        SECTION15_WIDTH - 2 * front.filter.RIM, front.filter.DEPTH, front.filter.RIM
-    ).translate(
+    s4 = screwCutout.translate(
         (
-            SIDES_WIDTH + front.filter.RIM,
-            DEPTH - front.filter.DEPTH,
-            HEIGHT - FLOOR_STRENGTH,
+            80 - external.m3.TOP_OFFSET,
+            (DEPTH + DEPTH_EXTENSION) * 3 / 4,
+            0,
         )
     )
 
-    h1 = reducedHrail(
-        SIDES_WIDTH + SECTION15_WIDTH * 1 / 16,
-        split.hbar.Y_OFFSET,
-        SECTION15_WIDTH * 6 / 16,
-    )
-    h2 = reducedHrail(
-        SIDES_WIDTH + SECTION15_WIDTH * 9 / 16,
-        split.hbar.Y_OFFSET,
-        SECTION15_WIDTH * 6 / 16,
-    )
+    splitPlane = split.planeXY(80).translate((0, 0, HEIGHT - TOP_HEIGHT))
 
-    result = split.bulge(result, h1.union(h2).union(s))
+    splitter = splitPlane.union(s1).union(s2).union(s3).union(s4)
 
-    for x, width in _SECTIONS[1:]:
-        rails = hrails(width).translate((x, 0, 0))
-        result = split.bulge(result, rails)
+    splitted = volume.cut(d).cut(splitter)
 
-    return result
+    parts = splitted.solids().vals()
+    parts = sorted(parts, key=lambda s: (s.Center().x, s.Center().y, s.Center().z))
 
+    export.stl(parts[0], "tests/part1.stl")
+    export.stl(parts[1], "tests/part2.stl")
 
-def splitAll():
-    result = splitZ()
-
-    sideplane = splitXSides(-1).translate((SIDES_WIDTH, 0, 0))
-
-    result = result.union(sideplane)
-
-    for x, width in _SECTIONS[1:]:
-        result = result.union(splitX().translate((x, 0, 0)))
-
-    result = result.union(splitXSides(1).translate((WIDTH - SIDES_WIDTH, 0, 0)))
-
-    return result.union(drillings())
-
-
-def fullSplit():
-    _splitall = splitAll()
-    _full = full()
-    result = _full.cut(_splitall)
-    return result
+    return parts

@@ -1,7 +1,7 @@
 from inkex import dataclass
 
 from prelude import *
-from external.fan import fan
+from external.fan.fan import fan
 
 import shapes
 
@@ -43,10 +43,9 @@ _DUCT_OFFSETZ = _FAN_OFFSET + _FAN_SIZE + _FOAM_THICKNESS
 _DUCT_LENGTH = FANASSEMBLY_WIDTH - _DUCT_OFFSETX
 _DUCT_HEIGHT = FANASSEMBLY_HEIGHT - _DUCT_OFFSETZ
 
-_CABLE_DIAMETER = 1.2
+_CABLE_DIAMETER = 1.4
 _NUM_CABLES = 8
 _CABLE_CUTOUT_HEIGHT = 1.6
-_CABLE_CUTOUT_DEPTH_PADDING = _FOAM_WIDTH
 _CABLE_CUTOUT_WIDTH = _CABLE_DIAMETER * 8 * 3 + 2
 
 
@@ -186,37 +185,18 @@ def fanAssemblyCutout(positive_Depth, negative_Depth):
         FANASSEMBLY_CUTOUT_WIDTH - pinholeOffsetX, negative_Depth, p4_y, p4_y
     )
 
-    cableCutout1 = shapes.box(
+    cableCutout = shapes.box(
         _CABLE_CUTOUT_WIDTH,
-        positive_Depth - _FOAM_WIDTH * 2,
-        _CABLE_CUTOUT_HEIGHT + _FOAM_THICKNESS + _WALL_THICKNESS,
+        6,
+        10,
     ).translate(
         (
             _DUCT_OFFSETX - _CABLE_CUTOUT_WIDTH - _CABLE_DIAMETER,
-            _FOAM_WIDTH,
+            positive_Depth - _FOAM_WIDTH - 6,
             0,
         )
     )
-    cableCutout2 = shapes.box(
-        20,
-        10,
-        30,
-        centered=True,
-    ).translate(
-        (
-            _DUCT_OFFSETX - _CABLE_CUTOUT_WIDTH / 2 - _CABLE_DIAMETER,
-            _FOAM_WIDTH + (positive_Depth - _FOAM_WIDTH * 2) / 2,
-            0,
-        )
-    )
-    return (
-        main.union(p1)
-        .union(p2)
-        .union(p3)
-        .union(p4)
-        .union(cableCutout1)
-        .union(cableCutout2)
-    )
+    return main.union(p1).union(p2).union(p3).union(p4).union(cableCutout)
 
 
 @dataclass
