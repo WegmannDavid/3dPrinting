@@ -1,72 +1,58 @@
-from prelude import *
-import functools
-from helmholtz.random import generate_hole_sizes, HelmholtzPanelParams
+import math
 
-import shapes
+C_SOUND_MM = 343_000.0  # mm/s
 
 
-def neck(depth, diameter):
-    n = cq.Workplane("XY").box(diameter, depth, diameter)
-    n = n.translate((0, depth / 2, 0))
-    n = n.rotate((0, 0, 0), (0, 1, 0), 45)
-    return n
+def helmholtz_volume_mm(f_hz, A_mm2, L_mm):
+    """Volume [mm^3] for target frequency f [Hz] given neck area [mm^2] and length [mm]."""
+    r_mm = math.sqrt(A_mm2 / math.pi)
+    L_eff = L_mm + 1.7 * r_mm  # end correction
+    omega = 2 * math.pi * f_hz
+    return (C_SOUND_MM**2) * A_mm2 / (omega**2 * L_eff)
 
 
-def vNeck(depth, width, height, wall_thickness, extension):
-    size = depth - wall_thickness * 2
-    v = shapes.box(width, size, height).translate((0, wall_thickness, 0))
-    a = shapes.box(width, wall_thickness + extension, size).translate(
-        (0, -extension, 0)
-    )
-    b = shapes.box(width, wall_thickness + extension, size).translate(
-        (0, depth - wall_thickness, height - size)
-    )
-    return v.union(a).union(b)
+def _neck_for_volume(f_hz, V_mm3, A_min_mm2, L_min_mm):
+    """Pick (A, L) so the resonator hits f_hz with cavity V_mm3, respecting minima.
+
+    Try L = L_min and solve for A. If that drives A below A_min, pin A = A_min
+    and solve for L instead.
+    """
+    omega = 2 * math.pi * f_hz
+    # Solve c^2 * s^2 - B * s - omega^2 * V * L_min = 0, with s = sqrt(A),
+    # which encodes the end correction L_eff = L + 1.7 * sqrt(A/pi).
+    B = 1.7 * omega**2 * V_mm3 / math.sqrt(math.pi)
+    disc = B**2 + 4 * C_SOUND_MM**2 * omega**2 * V_mm3 * L_min_mm
+    s = (B + math.sqrt(disc)) / (2 * C_SOUND_MM**2)
+    A = s**2
+    if A >= A_min_mm2:
+        return A, L_min_mm
+    A = A_min_mm2
+    r = math.sqrt(A / math.pi)
+    L = C_SOUND_MM**2 * A / (omega**2 * V_mm3) - 1.7 * r
+    return A, L
 
 
-def rectVNeck(depth, height, wall_thickness, extension):
-    width = depth - wall_thickness * 2
-    n = vNeck(depth, width, height, wall_thickness, extension)
-    return n.rotate((0, 0, 0), (0, 1, 0), 45).translate((width, 0, width))
+def resonator_array_linear(f1, f2, n, A_min_mm2, L_min_mm, V_total_mm3):
+    """Linearly-spaced resonator frequencies over [f1, f2] with a fixed total cavity volume.
 
+    V_total is allocated across the n resonators in proportion to each
+    resonator's natural volume at (A_min, L_min) -- so low-f cavities get the
+    larger share. Per-resonator A and L are then chosen to hit f_i (preferring
+    L = L_min, raising A; if that would push A below A_min, A is pinned and L
+    grows instead).
 
-def helmholtz_array(numX, numZ, width, depth, height, lengths):
-    offsetX = width / numX
-    offsetZ = height / numZ
-    startX = 0
-    startZ = 0
-
-    necks = []
-    for j in range(numZ):
-        for i in range(numX):
-            l = lengths[j, i]
-            necks.append(
-                rectVNeck(depth, l, NOZZLE * 2, 10).translate(
-                    (startX + i * offsetX, 0, startZ + j * offsetZ)
-                )
-            )
-    return functools.reduce(lambda a, b: a.union(b), necks)
-
-
-def sample_neck_lengths_2d(l1, l2, nX, nZ, seed=42):
-    u = np.linspace(0, 1, nX * nZ)
-    L = (1 / np.sqrt(l1) - u * (1 / np.sqrt(l1) - 1 / np.sqrt(l2))) ** (-2)
-    rng = np.random.default_rng(seed)
-    rng.shuffle(L)
-    return L.reshape(nZ, nX)
-
-
-def tuned_helmholtz_array(numX, numZ, width, depth, height):
-    l_min = 5  # 50 mm
-    l_max = 20  # 50 mm
-    diameters = sample_neck_lengths_2d(l_min, l_max, numX, numZ)
-    return helmholtz_array(numX, numZ, width, depth, height, diameters)
-
-
-import numpy as np
-
-
-def test():
-    a = tuned_helmholtz_array(5 * 4, 4, 1000, 6.4, 200)
-
-    cq.exporters.export(a.val(), "stl/tests/helmholtz_array_test.stl")
+    Uniform density in Hz -> flat dB envelope in the large-n limit
+    (with Lorentzian tails at the band edges).
+    """
+    if n == 1:
+        fs = [(f1 + f2) / 2]
+    else:
+        fs = [f1 + (f2 - f1) * i / (n - 1) for i in range(n)]
+    V_natural = [helmholtz_volume_mm(f, A_min_mm2, L_min_mm) for f in fs]
+    scale = V_total_mm3 / sum(V_natural)
+    Vs = [v * scale for v in V_natural]
+    Rs = []
+    for f_i, V_i in zip(fs, Vs):
+        A_i, L_i = _neck_for_volume(f_i, V_i, A_min_mm2, L_min_mm)
+        Rs.append((1, A_i, L_i, V_i))
+    return Rs

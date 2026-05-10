@@ -2,7 +2,7 @@ import cadquery as cq
 
 NOZZLE = 0.4
 LAYER = 0.2
-EPSILON = 0.0001
+EPSILON = 0.01
 
 
 def negative_point(point):

@@ -1,5 +1,7 @@
 import cadquery as cq
 
+from prelude import *
+
 
 def box(width, depth, height, centered=False):
     return cq.Workplane("XY").box(width, depth, height, centered=centered)
@@ -54,5 +56,53 @@ def rectPatterXY(width, depth, height, nX, nY, gap):
     return result
 
 
-def cylinder(radius, height):
+def cylinderAlongZ(radius, height):
     return cq.Workplane("XY").circle(radius).extrude(height)
+
+
+def cylinderAlongY(radius, depth):
+    return cq.Workplane("XZ").circle(radius).extrude(-depth)
+
+
+def cathedralAlongY(width, depth, height):
+    return (
+        cq.Workplane("XZ")
+        .moveTo(0, 0)
+        .lineTo(0, height - width / 2)
+        .lineTo(width / 2, height)
+        .lineTo(width, height - width / 2)
+        .lineTo(width, 0)
+        .close()
+        .extrude(-depth)
+    )
+
+
+def cathedralAlongX(width, depth, height):
+    return (
+        cq.Workplane("YZ")
+        .moveTo(0, 0)
+        .lineTo(0, height - depth / 2)
+        .lineTo(depth / 2, height)
+        .lineTo(depth, height - depth / 2)
+        .lineTo(depth, 0)
+        .close()
+        .extrude(width)
+    )
+
+
+def shell_union(solid: cq.Workplane) -> cq.Workplane:
+    """
+    Return a thin shell of thickness 2*epsilon hugging the original surface
+    of `solid`, made by unioning an outward shell (+epsilon) and an inward
+    shell (-epsilon).
+
+    The result is a hollow skin straddling the boundary of the input solid.
+    """
+    outward = solid.shell(EPSILON)
+    inward = solid.shell(-EPSILON)
+    return outward.union(inward)
+
+
+def extrudePolygon(polygon, workplane="XY", length=1.0):
+    """Extrude a 2D polygon (list of (x, y) tuples) along the workplane normal."""
+    return cq.Workplane(workplane).polyline(list(polygon)).close().extrude(length)

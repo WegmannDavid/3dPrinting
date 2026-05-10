@@ -13,7 +13,7 @@ import shapes
 BASE_PLATE_DEPTH = 144
 BASE_PLATE_HEIGHT = 10
 BASE_PLATE_BEGIN = front.DEPTH - BASE_PLATE_DEPTH
-BASE_PLATE_EXTENSION = 12
+BASE_PLATE_EXTENSION = front.DEPTH_EXTENSION
 
 
 def basePlate(width):
@@ -62,26 +62,14 @@ def bottomDrillings(Xpositions):
     return result
 
 
-import split.vbar
+import split
 
 
-def vBars(num):
+def vBars():
+    num = 5
 
-    offset = (-BASE_PLATE_BEGIN - BASE_PLATE_EXTENSION) / num
+    result = list()
 
-    result = cq.Workplane("YZ")
-
-    for i in range(0, num):
-        result = result.union(
-            split.vbar.vbarFeature(BASE_PLATE_HEIGHT, 1).translate(
-                (
-                    0,
-                    BASE_PLATE_BEGIN
-                    + BASE_PLATE_EXTENSION
-                    + split.vbar.Y_OFFSET
-                    + offset * i,
-                    -BASE_PLATE_HEIGHT,
-                )
-            )
-        )
+    for Y in split.vbar.spread(BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION, 0, num):
+        result.append((Y, -BASE_PLATE_HEIGHT, 0))
     return result

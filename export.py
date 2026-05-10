@@ -13,7 +13,7 @@ def stl(shape, name):
     print(f"Exported STL to {path}")
 
 
-def combined_nastran(shapes: list, output_path: str, max_element_size: float = None):
+def combined_nastran(domains: list, output_path: str, max_element_size: float = None):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)  # Handles subfolders too
 
     gmsh.initialize()
@@ -25,12 +25,12 @@ def combined_nastran(shapes: list, output_path: str, max_element_size: float = N
     all_tags = []
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        for shape_idx, shape in enumerate(shapes):
-            solids = shape.solids().vals()
+        for domain_idx, domain in enumerate(domains):
+            solids = domain.solids().vals()
 
             for solid_idx, solid in enumerate(solids):
                 step_path = os.path.join(
-                    tmpdir, f"shape_{shape_idx}_solid_{solid_idx}.step"
+                    tmpdir, f"domain_{domain_idx}_solid_{solid_idx}.step"
                 )
                 cq.exporters.export(cq.Workplane().newObject([solid]), step_path)
                 tags = gmsh.model.occ.importShapes(step_path)

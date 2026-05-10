@@ -125,3 +125,17 @@ def rectDuctYZAlongX(port1: RectPort, port2: RectPort) -> cq.Workplane:
     result = profile_a.intersect(profile_b).translate((port1.x, 0, 0))
 
     return result
+
+
+def guidingVaneAlongZ(Width1, Width2, Depth, Height):
+    result = bezierDuctProfile(
+        portDim="X",
+        lengthDim="Z",
+        s1=-Width1 / 2,
+        e1=Width1 / 2,
+        s2=-Width2 / 2,
+        e2=Width2 / 2,
+        length=Height,
+        depth=Depth,
+    )
+    return result

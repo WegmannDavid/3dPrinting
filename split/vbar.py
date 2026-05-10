@@ -1,3 +1,4 @@
+from front.basePlate import BASE_PLATE_EXTENSION
 from prelude import *
 import split
 
@@ -77,3 +78,24 @@ def vbarDoubleFeature(height, z, contactArea):
     vbar1 = vbarFeature(z, contactArea)
     vbar2 = vbarFeature(height - z, contactArea).mirror("XY").translate((0, 0, height))
     return vbar1.union(vbar2)
+
+
+def splitXYWithVBars(Y1, Y2, Z1, Z2, vbarPositions, contactArea):
+    plane = split.planeYZ(Y1, Y2, Z1, Z2)
+    for Y, Z1, Z2 in vbarPositions:
+        featureHeight = Z2 - Z1
+        plane = split.bulge(
+            plane, vbarFeature(featureHeight, contactArea).translate((0, Y, Z1))
+        )
+    return plane
+
+
+def spread(Y1, Y2, num):
+    offset = (Y2 - Y1) / num
+
+    result = list()
+
+    for i in range(0, num):
+        result.append(Y1 + offset * (i + 0.5))
+
+    return result

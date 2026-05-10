@@ -6,22 +6,21 @@ def bulge(splitter, feature):
     return splitter.union(feature).cut(inter)
 
 
-def planeYZ(w):
+def planeYZ(Y1, Y2, Z1, Z2):
+    depth = Y2 - Y1
+    height = Z2 - Z1
     return (
         cq.Workplane("YZ")
-        .rect(w * 3, w * 3)
+        .rect(depth, height, centered=False)
         .extrude(2 * EPSILON)
-        .translate((-EPSILON, 0, 0))
+        .translate((-EPSILON, Y1, Z1))
     )
 
 
-def planeXY(w):
-    return (
-        cq.Workplane("XY")
-        .rect(w * 3, w * 3)
-        .extrude(2 * EPSILON)
-        .translate((0, 0, -EPSILON))
-    )
+def planeXY(X1, X2, Y1, Y2):
+    width = X2 - X1
+    depth = Y2 - Y1
+    return shapes.box(width, depth, 2 * EPSILON).translate((X1, Y1, -EPSILON))
 
 
 import shapes

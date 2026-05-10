@@ -1,7 +1,7 @@
 from prelude import *
 import split
 
-Y_EXTENSION = NOZZLE * 2  # accessible
+Y_EXTENSION = NOZZLE * 1.5  # accessible
 HEIGHT = NOZZLE * 5  # private
 Y_OFFSET = NOZZLE * 4 + Y_EXTENSION
 
@@ -26,8 +26,8 @@ def hbarCutout(width):
         cq.Workplane("YZ")
         .moveTo(0, 0)
         .lineTo(Y_EXTENSION + EPSILON, 0)
-        .lineTo(Y_EXTENSION + EPSILON, -HEIGHT)
-        .lineTo(0, -HEIGHT)
+        .lineTo(Y_EXTENSION + EPSILON, -HEIGHT + NOZZLE)
+        .lineTo(0, -HEIGHT + NOZZLE - Y_EXTENSION)
         .close()
         .extrude(width)
         .mirror("XZ", None, True)
