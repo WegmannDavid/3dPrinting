@@ -136,7 +136,10 @@ def split_at_edge(
 
                 iso_c = _isoperimetric_ratio(cavity_poly)
                 iso_r = _isoperimetric_ratio(remainder_poly)
-                score = -min(iso_c, iso_r)
+                # Scaling iso_r up makes the cavity (non-convex piece) more
+                # often the binding constraint, so optimisation effort goes
+                # into the cavity's shape.
+                score = -min(iso_c, 1.5 * iso_r)
 
                 if best is None or score < best[0]:
                     best = (score, P, M, H, k)
