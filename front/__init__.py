@@ -1,6 +1,3 @@
-import math
-from unittest import result
-
 from prelude import *
 
 

@@ -235,13 +235,3 @@ def _dedup_vertices(pts, tol=1e-9):
     return out
 
 
-def broadbandTest(f1, f2, n):
-    Rs = helmholtz.array.resonator_array_linear(
-        f1=f1,
-        f2=f2,
-        n=n,
-        A_min_mm2=3.0,
-        L_min_mm=1.6,
-        V_total_mm3=WIDTH * RESONATOR_DEPTH * 100.0,
-    )
-    return ductWithResonators(Rs)

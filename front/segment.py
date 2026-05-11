@@ -1,5 +1,4 @@
 import math
-from unittest import result
 
 from prelude import *
 
@@ -188,7 +187,7 @@ def safe_line_to(wp, x, y, tol=1e-6):
     return wp.lineTo(x, y)
 
 
-def singleResonatorCutout1(width):
+def singleResonatorCutout(width):
     ReferenceY = WALL_STRENGTH + SHORT_OFFSET + LONG_OFFSET + WALL_STRENGTH * SQRT2
     ReferenceZ = front.HEIGHT - LONG_OFFSET - WALL_STRENGTH
 
@@ -213,6 +212,7 @@ def singleResonatorCutout1(width):
         (Y2, Z2),
         (ReferenceY, ReferenceZ),
         (Y1, Z1),
+        (Y1, OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE),
         (Y1, 0),
     ]
 
@@ -222,43 +222,9 @@ def singleResonatorCutout1(width):
         gravity=(0, -1),
         f1=RESONATOR_F1,
         f2=RESONATOR_F2,
-        n_cavities=2,
+        n_cavities=3,
         neck_length=WALL_STRENGTH,
-        dock_edge_index=4,
-        wall_strength=WALL_STRENGTH,
-        workplane="YZ",
-    )
-
-
-def singleResonatorCutout2(width):
-    polygon = [
-        (
-            RESONATOR_WALL_OFFSET_Y - WALL_STRENGTH,
-            OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE + WALL_STRENGTH,
-        ),
-        (
-            RESONATOR_WALL_OFFSET_Y - WALL_STRENGTH,
-            OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE + FOAM_DEPTH + WALL_STRENGTH,
-        ),
-        (
-            FOAM_OFFSET_Y + WALL_STRENGTH,
-            OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE + WALL_STRENGTH * 3,
-        ),
-        (
-            FOAM_OFFSET_Y + WALL_STRENGTH,
-            OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE + WALL_STRENGTH,
-        ),
-    ]
-
-    return helmholtz.geometry.cavity_array(
-        polygon=polygon,
-        extrusion_depth=width,
-        gravity=(1, -1),
-        f1=RESONATOR_F1,
-        f2=RESONATOR_F2,
-        n_cavities=1,
-        neck_length=WALL_STRENGTH,
-        dock_edge_index=3,
+        dock_edge_index=5,
         wall_strength=WALL_STRENGTH,
         workplane="YZ",
     )
@@ -275,9 +241,8 @@ def resonatorsCutout(width, numFans):
     for X1, X2 in interval(
         PADDING, width - PADDING, OUTLETS_PER_SEGMENT, OUTLET_X_GAP_WIDTH
     ):
-        R1 = singleResonatorCutout1(X2 - X1).translate((X1, 0, 0))
-        R2 = singleResonatorCutout2(X2 - X1).translate((X1, 0, -1))
-        result = result.union(R1)  # .union(R2)
+        R1 = singleResonatorCutout(X2 - X1).translate((X1, 0, 0))
+        result = result.union(R1)
 
     return result
 

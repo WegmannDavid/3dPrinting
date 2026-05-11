@@ -196,6 +196,17 @@ def partition_along_edge(polygon, edge_index, items, gravity, wall_strength=0.0)
     if wall_strength < 0:
         raise ValueError("wall_strength must be non-negative")
 
+    # Compensate min_dock_length for wall-inset shrinkage of the dock segment.
+    # Each adjacent cut shortens its cell's dock end by ~wall_strength/2 (more
+    # at oblique cut angles; this is the perpendicular-cut estimate). End cells
+    # have one cut-adjacent dock endpoint, middle cells have two.
+    if wall_strength > 0 and len(items) > 1:
+        last = len(items) - 1
+        items = [
+            (V, L + (1 if i in (0, last) else 2) * wall_strength)
+            for i, (V, L) in enumerate(items)
+        ]
+
     n = len(polygon)
     a_e = polygon[edge_index]
     b_e = polygon[(edge_index + 1) % n]
