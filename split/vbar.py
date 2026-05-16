@@ -65,7 +65,7 @@ def vbarCutout(height, contactArea):
         (WIDTH - _STRENGTH, _STRENGTH / 2, WIDTH + _SIDES + contactArea)
     )
 
-    contact2 = _shape1(height - contactArea, NOZZLE + EPSILON, WIDTH - _STRENGTH)
+    contact2 = _shape1(height - contactArea, NOZZLE + EPSILON, WIDTH + NOZZLE)
     contact2 = contact2.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 90)
     contact2 = contact2.translate((0, NOZZLE, contactArea))
 

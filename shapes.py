@@ -7,6 +7,10 @@ def box(width, depth, height, centered=False):
     return cq.Workplane("XY").box(width, depth, height, centered=centered)
 
 
+def boxFromBounds(x1, x2, y1, y2, z1, z2):
+    return box(x2 - x1, y2 - y1, z2 - z1).translate((x1, y1, z1))
+
+
 def openBox(
     width, wOpen1, wOpen2, depth, dOpen1, dOpen2, height, hOpen1, hOpen2, wallStrength
 ):

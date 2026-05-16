@@ -3,7 +3,7 @@ import shapes
 
 WALL_THICKNESS = NOZZLE * 4
 
-DEPTH = 32
+DEPTH = 30
 SIZE = 130
 
 SCREW_DISTANCE = 49
@@ -26,9 +26,9 @@ def screwCutouts():
     return s1.union(s2).union(s3)
 
 
-HUB_WALL_STRENGTH = 7
+HUB_WALL_STRENGTH = 3
 HUB_RADIUS = 38
-HUB_DEPTH = 4
+HUB_DEPTH = 4.5
 
 
 def hubCutout():
@@ -47,9 +47,9 @@ def impellerCutout():
     )
 
 
-REDUCER_IN_DEPTH = 10
-REDUCER_OUT_Y1 = 20
-REDUCER_OUT_Y2 = 22
+REDUCER_IN_DEPTH = 11
+REDUCER_OUT_Y1 = 10
+REDUCER_OUT_Y2 = 20
 
 import duct.solid
 
@@ -273,12 +273,13 @@ import split.vbar
 
 def splitter():
     reference = housingVolume()
-    h = SIZE / 2 - WALL_THICKNESS * 2
+    ch = WALL_THICKNESS * 3
+    h = SIZE / 2 - ch
     w = IMPELLER_RADIUS * 2 + WALL_THICKNESS * 2
     x1 = SIZE / 2 - w / 2
     x2 = SIZE / 2 + w / 2
-    cover = shapes.box(SIZE * 2, DEPTH * 2, WALL_THICKNESS * 2).translate(
-        (-SIZE / 2, -DEPTH / 2, SIZE - WALL_THICKNESS * 2)
+    cover = shapes.box(SIZE * 2, DEPTH * 2, ch).translate(
+        (-SIZE / 2, -DEPTH / 2, SIZE - ch)
     )
     box = shapes.box(w, DEPTH * 2, h).translate(
         (x1, -DEPTH / 2, SIZE / 2 + EPSILON * 2)
@@ -286,24 +287,45 @@ def splitter():
     splitter = split.shell(box.union(cover))
 
     lb1 = (
-        split.vbar.feature(h, 2)
+        split.vbar.feature(h, 1.6)
         .mirror("YZ")
         .translate((x1, DEPTH - split.vbar.Y_OFFSET, SIZE / 2))
     )
     lb2 = (
-        split.vbar.feature(h, 2)
+        split.vbar.feature(h, 1.6)
         .mirror("YZ")
-        .translate((x1, HUB_WALL_STRENGTH + split.vbar.Y_OFFSET, SIZE / 2))
+        .translate((x1, split.vbar.Y_OFFSET, SIZE / 2))
     )
-    rb1 = split.vbar.feature(h, 2).translate(
+    rb1 = split.vbar.feature(h, 1.6).translate(
         (x2, DEPTH - split.vbar.Y_OFFSET, SIZE / 2)
     )
-    rb2 = split.vbar.feature(h, 2).translate(
-        (x2, HUB_WALL_STRENGTH + split.vbar.Y_OFFSET, SIZE / 2)
-    )
+    rb2 = split.vbar.feature(h, 1.6).translate((x2, split.vbar.Y_OFFSET, SIZE / 2))
     splitter = split.addFeature(splitter, lb1)
     splitter = split.addFeature(splitter, lb2)
     splitter = split.addFeature(splitter, rb1)
     splitter = split.addFeature(splitter, rb2)
 
-    return splitter
+    cutoutDepth = 7
+
+    lc1 = shapes.boxFromBounds(
+        0,
+        x1 - split.vbar.X_REQUIRED,
+        NOZZLE * 2,
+        cutoutDepth,
+        SIZE - ch - WALL_THICKNESS * 2,
+        SIZE - ch,
+    )
+
+    lc2 = shapes.boxFromBounds(
+        0,
+        x1 - split.vbar.X_REQUIRED,
+        DEPTH - cutoutDepth,
+        DEPTH - NOZZLE * 2,
+        SIZE - ch - WALL_THICKNESS * 2,
+        SIZE - ch,
+    )
+
+    lc = lc1.union(lc2)
+    rc = lc.mirror("YZ").translate((SIZE, 0, 0))
+
+    return splitter.union(lc).union(rc)

@@ -63,7 +63,7 @@ def bezierDuctProfile(
     all_dims = {"X", "Y", "Z"}
     extrude_dim = (all_dims - {portDim, lengthDim}).pop()
     plane_name = "".join(sorted([portDim, lengthDim]))
-    handle = (l2 - l1) / 2.0
+    handle = (l2 - l1) / 3.0
 
     l1_outer = l1 - extendStraight1
     l2_outer = l2 + extendStraight2
