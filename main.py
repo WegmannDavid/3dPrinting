@@ -1,18 +1,19 @@
-import front
+import external.fan.Centrifugal
 
-d = front.full()
+import split
 
-s = front.splitter()
+v = split.vbar.feature(20, 2)
 
-front.exportForFem()
+c = external.fan.Centrifugal.housingVolume()
+s = external.fan.Centrifugal.splitter()
 
-segments = d.cut(s).solids()
+segments = c.cut(s).solids()
 segments = sorted(segments, key=lambda s: (s.Center().x, s.Center().y, s.Center().z))
 
 import export
 
-export.stl(segments[1], "segment1.stl")
-export.stl(segments[2], "segment2.stl")
-export.stl(segments[3], "segment3.stl")
+export.step(c, "c.step")
+export.step(segments[0], "cTop.step")
+export.step(segments[1], "cBottom.step")
 
 i = 0

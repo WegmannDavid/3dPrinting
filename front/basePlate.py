@@ -5,6 +5,9 @@ import external.m3
 FOAM_RIM_INSET = 1.5
 FOAM_RIM_HEIGHT = 7
 
+FOAM_TOP_INSET = 1
+FOAM_TOP_WIDTH = 7
+
 _SLOPE_DEPTH = 2
 _SLOPE_HEIGHT = 1
 
@@ -22,7 +25,11 @@ def basePlate(width):
         .moveTo(front.DEPTH + BASE_PLATE_EXTENSION, -BASE_PLATE_HEIGHT)
         .lineTo(front.DEPTH + BASE_PLATE_EXTENSION, -_SLOPE_HEIGHT)
         .lineTo(front.DEPTH + BASE_PLATE_EXTENSION - _SLOPE_DEPTH, 0)
-        .lineTo(BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION, 0)
+        .lineTo(BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION + FOAM_TOP_WIDTH, 0)
+        .lineTo(
+            BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION + FOAM_TOP_WIDTH, -FOAM_TOP_INSET
+        )
+        .lineTo(BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION, -FOAM_TOP_INSET)
         .lineTo(BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION, -FOAM_RIM_HEIGHT)
         .lineTo(BASE_PLATE_BEGIN, -FOAM_RIM_HEIGHT)
         .lineTo(BASE_PLATE_BEGIN, -BASE_PLATE_HEIGHT)
@@ -66,7 +73,7 @@ import split
 
 
 def vBars():
-    num = 5
+    num = 4
 
     result = list()
 

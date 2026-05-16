@@ -13,6 +13,15 @@ def stl(shape, name):
     print(f"Exported STL to {path}")
 
 
+def step(shape, name):
+    path = os.path.join("./build/step/", name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)  # Handles subfolders too
+    if not path.endswith(".step"):
+        path += ".step"
+    cq.exporters.export(shape, path)
+    print(f"Exported STEP to {path}")
+
+
 def combined_nastran(domains: list, output_path: str, max_element_size: float = None):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)  # Handles subfolders too
 

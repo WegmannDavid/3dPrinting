@@ -10,16 +10,27 @@ class AxialParameters:
     CASING_LENGTH: float
     CASING_DUCT_INSET: float
     FOAM_THICKNESS: float
+    FOAM_WIDTH: float
+
+    CUTOUT_SIZE: float
+    CUTOUT_LENGTH: float
+    CUTOUT_DUCT_INSET: float
 
     def __init__(
-        self, CASING_SIZE, CASING_LENGTH, CASING_DUCT_INSET, FOAM_THICKNESS=3.5
+        self,
+        CASING_SIZE,
+        CASING_LENGTH,
+        CASING_DUCT_INSET,
+        FOAM_THICKNESS=3.5,
+        FOAM_WIDTH=6,
     ):
         self.CASING_SIZE = CASING_SIZE
         self.CASING_LENGTH = CASING_LENGTH
         self.CASING_DUCT_INSET = CASING_DUCT_INSET
         self.FOAM_THICKNESS = FOAM_THICKNESS
+        self.FOAM_WIDTH = FOAM_WIDTH
 
-        self.CUTOUT_SIZE = self.CASING_SIZE + 2 * self.FOAM_THICKNESS
+        self.CUTOUT_SIZE = self.CASING_SIZE + 2 * self.FOAM_WIDTH
         self.CUTOUT_LENGTH = self.CASING_LENGTH + 2 * self.FOAM_THICKNESS
         self.CUTOUT_DUCT_INSET = self.CASING_DUCT_INSET + self.FOAM_THICKNESS
 
@@ -76,8 +87,27 @@ class AxialSet:
 def fromParameters(parameters: AxialParameters) -> AxialSet:
 
     def cutoutWithFoam():
-        cutout = shapes.box(
-            parameters.CUTOUT_SIZE, parameters.CUTOUT_SIZE, parameters.CUTOUT_LENGTH
+        boxCutout = shapes.box(
+            parameters.CASING_SIZE + 2 * parameters.FOAM_THICKNESS,
+            parameters.CASING_SIZE + 2 * parameters.FOAM_THICKNESS,
+            parameters.CUTOUT_LENGTH,
+            centered=True,
+        ).translate(
+            (
+                parameters.CUTOUT_SIZE / 2,
+                parameters.CUTOUT_SIZE / 2,
+                parameters.CUTOUT_LENGTH / 2,
+            )
+        )
+        cylindricalCutout = shapes.cylinderAlongZ(
+            parameters.CUTOUT_SIZE / 2,
+            parameters.CUTOUT_LENGTH,
+        ).translate(
+            (
+                parameters.CUTOUT_SIZE / 2,
+                parameters.CUTOUT_SIZE / 2,
+                0,
+            )
         )
         cableCutout = (
             shapes.box(
@@ -88,7 +118,7 @@ def fromParameters(parameters: AxialParameters) -> AxialSet:
             .translate((parameters.FOAM_THICKNESS + 2, -parameters.CUTOUT_LENGTH, 0))
             .rotate((0, 0, 0), (1, 0, 0), -45)
         )
-        return cutout.union(cableCutout)
+        return boxCutout.union(cableCutout).union(cylindricalCutout)
 
     result = AxialSet()
     result.PARAMETERS = parameters
@@ -121,6 +151,7 @@ def axial60x60x25mm() -> AxialSet:
             CASING_LENGTH=25,
             CASING_DUCT_INSET=1,
             FOAM_THICKNESS=3.5,
+            FOAM_WIDTH=6,
         )
     )
 
@@ -132,5 +163,6 @@ def axial80x80x25mm() -> AxialSet:
             CASING_LENGTH=25,
             CASING_DUCT_INSET=1,
             FOAM_THICKNESS=3.5,
+            FOAM_WIDTH=6,
         )
     )

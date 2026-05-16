@@ -21,14 +21,13 @@ EXPANDER_HEIGHT = front.HEIGHT - OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE
 BASEPLATE_HEIGHT = 10
 
 
-OUTLET_DUCT_DEPTH = 3
-OUTLET_DEPTH = 4
+OUTLET_DUCT_DEPTH = 5
 FOAM_DEPTH = 20
 FOAM_OFFSET_Y = WALL_STRENGTH + OUTLET_DUCT_DEPTH
 RESONATOR_WALL_OFFSET_Y = FOAM_OFFSET_Y + FOAM_DEPTH
 RESONATOR_OFFSET_Y = RESONATOR_WALL_OFFSET_Y + WALL_STRENGTH
 RESONATOR_F1 = 200
-RESONATOR_F2 = 800
+RESONATOR_F2 = 900
 
 OUTLETS_PER_FAN = 2
 OUTLET_X_GAP_WIDTH = WALL_STRENGTH
@@ -47,6 +46,14 @@ BOTTOM_HEIGHT = front.HEIGHT - TOP_HEIGHT
 
 
 import duct.solid
+
+
+def cableChannelPolygon():
+    return [
+        (WALL_STRENGTH, front.HEIGHT - WALL_STRENGTH),
+        (SHORT_OFFSET, front.HEIGHT - WALL_STRENGTH),
+        (WALL_STRENGTH, front.HEIGHT - SHORT_OFFSET),
+    ]
 
 
 def singleFanOutlet(width):
@@ -302,12 +309,21 @@ def segmentCutout(WIDTH, numFans):
 
     resonator = resonatorsCutout(WIDTH, numFans)
 
-    return ducts.union(_outletDuct).union(_foam).union(resonator)
+    cableChannelTopCutout = shapes.box(
+        WIDTH - 2 * WALL_STRENGTH, SHORT_OFFSET - WALL_STRENGTH, WALL_STRENGTH
+    ).translate((WALL_STRENGTH, WALL_STRENGTH, front.HEIGHT - WALL_STRENGTH))
+
+    return (
+        ducts.union(_outletDuct)
+        .union(_foam)
+        .union(resonator)
+        .union(cableChannelTopCutout)
+    )
 
 
 import split.vbar
 
-SCREW_OFFSET_X = split.vbar.X_REQUIRED + external.m3.OFFSET
+# SCREW_OFFSET_X = split.vbar.X_REQUIRED + external.m3.OFFSET
 
 
 def splitSegment(WIDTH, numFans):
@@ -334,14 +350,24 @@ def splitSegment(WIDTH, numFans):
     )
     splitMiddlePart = middlePartSplitter(WIDTH, numFans)
 
-    topLeft = split.planeYZ(0, front.EXTENDED_DEPTH, BOTTOM_HEIGHT, front.HEIGHT)
-    topRight = topLeft.translate((WIDTH, 0, 0))
+    leftGAP = split.planeYZ(
+        0, front.EXTENDED_DEPTH, BOTTOM_HEIGHT, front.HEIGHT, THICKNESS=LAYER
+    ).union(
+        split.planeYZ(
+            0,
+            RESONATOR_WALL_OFFSET_Y,
+            OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE,
+            front.HEIGHT,
+            THICKNESS=LAYER,
+        )
+    )
+    rightGAP = leftGAP.translate((WIDTH, 0, 0))
 
     combined = (
         m3Cutouts.union(splitPlane)
         .union(splitMiddlePart)
-        .union(topLeft)
-        .union(topRight)
+        .union(leftGAP)
+        .union(rightGAP)
     )
 
     OUTLETS_PER_SEGMENT = OUTLETS_PER_FAN * numFans

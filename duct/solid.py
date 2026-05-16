@@ -28,8 +28,10 @@ def bezierDuctProfile(
     e1: float,
     s2: float,
     e2: float,
-    length: float,
-    depth: float,
+    l1: float,
+    l2: float,
+    extendStraight1: float = 0.0,
+    extendStraight2: float = 0.0,
 ) -> cq.Workplane:
     """
     Creates a solid 2D duct profile extruded to depth.
@@ -38,15 +40,18 @@ def bezierDuctProfile(
     then extruded along the remaining third dimension by depth.
 
     The two side walls are Bezier curves with tangents parallel to lengthDim
-    at both ends, giving smooth transitions at the ports.
+    at both ends, giving smooth transitions at the ports. Optional straight
+    sections of constant cross-section can be added before port 1 and after
+    port 2.
 
     Args:
-        portDim:   Dimension of the port spans, e.g. "X"
-        lengthDim: Dimension the duct extends along, e.g. "Z"
-        s1, e1:    Start and end of port 1 along portDim (at lengthDim=0)
-        s2, e2:    Start and end of port 2 along portDim (at lengthDim=length)
-        length:    Extent of the duct along lengthDim
-        depth:     Extrusion depth along the remaining dimension
+        portDim:          Dimension of the port spans, e.g. "X"
+        lengthDim:        Dimension the duct extends along, e.g. "Z"
+        s1, e1:           Start and end of port 1 along portDim (at lengthDim=l1)
+        s2, e2:           Start and end of port 2 along portDim (at lengthDim=l2)
+        l1, l2:           Start and end of the Bezier section along lengthDim
+        extendStraight1:  Length of straight section before port 1
+        extendStraight2:  Length of straight section after port 2
     """
 
     def make_point(port_val: float, length_val: float):
@@ -58,35 +63,90 @@ def bezierDuctProfile(
     all_dims = {"X", "Y", "Z"}
     extrude_dim = (all_dims - {portDim, lengthDim}).pop()
     plane_name = "".join(sorted([portDim, lengthDim]))
-    handle = length / 3.0
+    handle = (l2 - l1) / 2.0
+
+    l1_outer = l1 - extendStraight1
+    l2_outer = l2 + extendStraight2
 
     start_curve = [
-        cq.Vector(make_point(s1, 0)),
-        cq.Vector(make_point(s1, handle)),
-        cq.Vector(make_point(s2, length - handle)),
-        cq.Vector(make_point(s2, length)),
+        cq.Vector(make_point(s1, l1)),
+        cq.Vector(make_point(s1, l1 + handle)),
+        cq.Vector(make_point(s2, l2 - handle)),
+        cq.Vector(make_point(s2, l2)),
     ]
     end_curve = [
-        cq.Vector(make_point(e2, length)),
-        cq.Vector(make_point(e2, length - handle)),
-        cq.Vector(make_point(e1, handle)),
-        cq.Vector(make_point(e1, 0)),
+        cq.Vector(make_point(e2, l2)),
+        cq.Vector(make_point(e2, l2 - handle)),
+        cq.Vector(make_point(e1, l1 + handle)),
+        cq.Vector(make_point(e1, l1)),
     ]
 
-    start_edge = cq.Edge.makeBezier(start_curve)
-    end_edge = cq.Edge.makeBezier(end_curve)
-    port1_edge = cq.Edge.makeLine(
-        cq.Vector(make_point(s1, 0)),
-        cq.Vector(make_point(e1, 0)),
-    )
-    port2_edge = cq.Edge.makeLine(
-        cq.Vector(make_point(s2, length)),
-        cq.Vector(make_point(e2, length)),
+    start_bezier = cq.Edge.makeBezier(start_curve)
+    end_bezier = cq.Edge.makeBezier(end_curve)
+
+    edges = []
+
+    # Port 1
+    edges.append(
+        cq.Edge.makeLine(
+            cq.Vector(make_point(s1, l1_outer)),
+            cq.Vector(make_point(e1, l1_outer)),
+        )
     )
 
-    wire = cq.Wire.assembleEdges([port1_edge, end_edge, port2_edge, start_edge])
+    # Straight extension 1, side e1
+    if extendStraight1 > 0.0:
+        edges.append(
+            cq.Edge.makeLine(
+                cq.Vector(make_point(e1, l1_outer)),
+                cq.Vector(make_point(e1, l1)),
+            )
+        )
 
-    return cq.Workplane(plane_name).add(wire).toPending().extrude(-depth)
+    # Bezier side (e1 <-> e2)
+    edges.append(end_bezier)
+
+    # Straight extension 2, side e2
+    if extendStraight2 > 0.0:
+        edges.append(
+            cq.Edge.makeLine(
+                cq.Vector(make_point(e2, l2)),
+                cq.Vector(make_point(e2, l2_outer)),
+            )
+        )
+
+    # Port 2
+    edges.append(
+        cq.Edge.makeLine(
+            cq.Vector(make_point(e2, l2_outer)),
+            cq.Vector(make_point(s2, l2_outer)),
+        )
+    )
+
+    # Straight extension 2, side s2
+    if extendStraight2 > 0.0:
+        edges.append(
+            cq.Edge.makeLine(
+                cq.Vector(make_point(s2, l2_outer)),
+                cq.Vector(make_point(s2, l2)),
+            )
+        )
+
+    # Bezier side (s1 <-> s2)
+    edges.append(start_bezier)
+
+    # Straight extension 1, side s1
+    if extendStraight1 > 0.0:
+        edges.append(
+            cq.Edge.makeLine(
+                cq.Vector(make_point(s1, l1)),
+                cq.Vector(make_point(s1, l1_outer)),
+            )
+        )
+
+    wire = cq.Wire.assembleEdges(edges)
+
+    return cq.Workplane(plane_name).add(wire).toPending()
 
 
 def rectDuctYZAlongX(port1: RectPort, port2: RectPort) -> cq.Workplane:

@@ -27,17 +27,20 @@ def vbar(height, contactArea):
     middle = _shape1(height - LAYER * 3, WIDTH, _STRENGTH / 2)
     middle = middle.translate((0, 0, LAYER * 3))
 
-    side = _shape1(height - WIDTH - LAYER * 3, _SIDES, _STRENGTH)
+    side = _shape1(height - WIDTH - LAYER * 3, _SIDES, _STRENGTH - EPSILON * 4)
     side = side.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), -90)
     side = side.translate((WIDTH, -_STRENGTH / 2, WIDTH + LAYER * 3))
 
-    contact = _shape1(contactArea, NOZZLE, _STRENGTH)
-    contact = contact.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 180)
-    contact = contact.translate(
-        (WIDTH - _STRENGTH, _SIDES - _STRENGTH / 2, height - contactArea)
+    contact1 = _shape1(contactArea, NOZZLE, _STRENGTH)
+    contact1 = contact1.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 180)
+    contact1 = contact1.translate(
+        (WIDTH - _STRENGTH + EPSILON * 4, _SIDES - _STRENGTH / 2, height - contactArea)
     )
 
-    half = middle.union(side).union(contact)
+    contact2 = _shape1(contactArea, NOZZLE, WIDTH)
+    contact2 = contact2.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 90)
+    contact2 = contact2.translate((0, NOZZLE, height - contactArea))
+    half = middle.union(side).union(contact1).union(contact2)
     whole = half.union(half.mirror("XZ"))
     return whole
 
@@ -56,36 +59,37 @@ def vbarCutout(height, contactArea):
     side2 = side2.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), -90)
     side2 = side2.translate((NOZZLE * 3, -_STRENGTH / 2, WIDTH + LAYER * 2))
 
-    contact = _shape1(height - WIDTH - _SIDES - contactArea, NOZZLE, _SIDES + NOZZLE)
-    contact = contact.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 180)
-    contact = contact.translate(
+    contact1 = _shape1(height - WIDTH - _SIDES - contactArea, NOZZLE, _SIDES + NOZZLE)
+    contact1 = contact1.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 180)
+    contact1 = contact1.translate(
         (WIDTH - _STRENGTH, _STRENGTH / 2, WIDTH + _SIDES + contactArea)
     )
 
-    half = middle.union(side).union(side2).union(contact)
+    contact2 = _shape1(height - contactArea, NOZZLE + EPSILON, WIDTH - _STRENGTH)
+    contact2 = contact2.rotate((0, 0, 0), (0, 0, _STRENGTH / 2), 90)
+    contact2 = contact2.translate((0, NOZZLE, contactArea))
+
+    half = middle.union(side).union(side2).union(contact1).union(contact2)
     whole = half.union(half.mirror("XZ"))
     return whole
 
 
-def vbarFeature(height, contactArea):
-    cutout = vbarCutout(height, contactArea).translate((-EPSILON, 0, 0))
-    bar = vbar(height, contactArea).translate((EPSILON, 0, 0))
+import shapes
+
+
+def feature(height, contactArea):
+    cutout = vbarCutout(height, contactArea).translate((0, 0, 0))
+    bar = vbar(height + EPSILON * 2, contactArea).translate((-EPSILON * 2, 0, 0))
     gap = cutout.cut(bar)
-    return gap
+    return split.Feature(gap, bar)
 
 
-def vbarDoubleFeature(height, z, contactArea):
-    vbar1 = vbarFeature(z, contactArea)
-    vbar2 = vbarFeature(height - z, contactArea).mirror("XY").translate((0, 0, height))
-    return vbar1.union(vbar2)
-
-
-def splitXYWithVBars(Y1, Y2, Z1, Z2, vbarPositions, contactArea):
+def splitYZWithVBars(Y1, Y2, Z1, Z2, vbarPositions, contactArea):
     plane = split.planeYZ(Y1, Y2, Z1, Z2)
     for Y, Z1, Z2 in vbarPositions:
         featureHeight = Z2 - Z1
-        plane = split.bulge(
-            plane, vbarFeature(featureHeight, contactArea).translate((0, Y, Z1))
+        plane = split.addFeature(
+            plane, feature(featureHeight, contactArea).translate((0, Y, Z1))
         )
     return plane
 

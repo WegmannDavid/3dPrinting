@@ -4,7 +4,7 @@ from prelude import *
 import shapes
 
 WIDTH = 1144
-SIDE_WALL_WIDTH = 0
+SIDE_WALL_WIDTH = 10
 
 DEPTH = 100
 DEPTH_EXTENSION = 10
@@ -16,12 +16,12 @@ HEIGHT = 210
 import front.basePlate
 import front.segment
 
-SEGMENT_WIDTH = 110
-NUM_SEGMENTS = 1
+SEGMENT_WIDTH = 200
+NUM_SEGMENTS = 5
 ALL_SEGMENTS_WIDTH = SEGMENT_WIDTH * NUM_SEGMENTS
 PADDING_WIDTH = (WIDTH - ALL_SEGMENTS_WIDTH - 2 * SIDE_WALL_WIDTH) / 2
 
-FANS_PER_SEGMENT = 1
+FANS_PER_SEGMENT = 2
 
 SEGMENT_POSITIONS = [
     PADDING_WIDTH + SIDE_WALL_WIDTH + i * SEGMENT_WIDTH for i in range(NUM_SEGMENTS)
@@ -60,6 +60,13 @@ def full():
             SEGMENT_WIDTH, FANS_PER_SEGMENT
         ).translate((X1, 0, 0))
         _base = _base.cut(segment)
+
+    cableChannel = shapes.extrudePolygon(
+        front.segment.cableChannelPolygon(), "YZ", WIDTH
+    )
+    _base = _base.cut(cableChannel)
+
+    # Cut out foam space
 
     return _base
 
@@ -149,6 +156,7 @@ def splitter():
         basePlateScrewXPositions.append(X1 + SEGMENT_SCREW_X_OFFSET)
 
     basePlateScrewXPositions.append(WIDTH - PADDING_WIDTH / 2)
+    basePlateScrewXPositions.append(WIDTH - PADDING_WIDTH * 1.5)
 
     result.add(front.basePlate.bottomDrillings(basePlateScrewXPositions))
 
@@ -159,7 +167,7 @@ def air():
 
     volume = shapes.box(
         ALL_SEGMENTS_WIDTH,
-        front.basePlate.BASE_PLATE_HEIGHT + DEPTH + DEPTH_EXTENSION + 40,
+        DEPTH + DEPTH_EXTENSION,
         HEIGHT + front.basePlate.BASE_PLATE_HEIGHT,
     ).translate((0, 0, -front.basePlate.BASE_PLATE_HEIGHT))
 
@@ -183,11 +191,19 @@ def exportForFem():
     _air = air().cut(_full.union(_foam))
 
     airCutout = (
-        shapes.box(ALL_SEGMENTS_WIDTH, front.segment.FOAM_OFFSET_Y, HEIGHT)
-        .translate((0, 0, front.segment.OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE))
+        shapes.box(ALL_SEGMENTS_WIDTH, front.segment.FOAM_OFFSET_Y + 1, 1)
+        .translate(
+            (
+                0,
+                0,
+                front.segment.OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE
+                + front.segment.WALL_STRENGTH
+                + 1,
+            )
+        )
         .translate((PADDING_WIDTH + SIDE_WALL_WIDTH, 0, 0))
     )
-    # _air = _air.cut(airCutout)
+    _air = _air.cut(airCutout)
 
     outletAir = shapes.box(
         ALL_SEGMENTS_WIDTH - front.segment.OUTLET_X_GAP_WIDTH,
@@ -214,7 +230,7 @@ def exportForFem():
 
     actualInletAir = shapes.box(
         ALL_SEGMENTS_WIDTH,
-        30,
+        front.segment.OUTLET_DUCT_DEPTH,
         1,
     ).translate(
         (
@@ -227,5 +243,5 @@ def exportForFem():
     export.combined_nastran(
         [_air.union(actualInletAir).union(outletAir), _foam],
         "build/System.nas",
-        max_element_size=50,
+        max_element_size=10,
     )
