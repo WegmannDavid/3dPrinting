@@ -4,30 +4,29 @@ from prelude import *
 import shapes
 
 WIDTH = 1144
-SIDE_WALL_WIDTH = 10
+SIDE_WALL_WIDTH = 0
 
-DEPTH = 100
+DEPTH = 70
 DEPTH_EXTENSION = 10
 EXTENDED_DEPTH = DEPTH + DEPTH_EXTENSION
 DEPTH_EXTENSIONZ = 15
 
 HEIGHT = 210
 
-import front.basePlate
-import front.segment
 
-SEGMENT_WIDTH = 200
-NUM_SEGMENTS = 5
+SEGMENT_WIDTH = 250
+NUM_SEGMENTS = 1
 ALL_SEGMENTS_WIDTH = SEGMENT_WIDTH * NUM_SEGMENTS
 PADDING_WIDTH = (WIDTH - ALL_SEGMENTS_WIDTH - 2 * SIDE_WALL_WIDTH) / 2
-
-FANS_PER_SEGMENT = 2
 
 SEGMENT_POSITIONS = [
     PADDING_WIDTH + SIDE_WALL_WIDTH + i * SEGMENT_WIDTH for i in range(NUM_SEGMENTS)
 ]
 
 SEGMENT_SCREW_X_OFFSET = 10
+
+import front.basePlate
+import front.segment
 
 
 def base():
@@ -36,8 +35,6 @@ def base():
         .moveTo(0, 0)
         .lineTo(0, HEIGHT)
         .lineTo(DEPTH + DEPTH_EXTENSION, HEIGHT)
-        .lineTo(DEPTH + DEPTH_EXTENSION, DEPTH_EXTENSIONZ)
-        .lineTo(DEPTH, DEPTH_EXTENSIONZ - DEPTH_EXTENSION)
         .lineTo(DEPTH, 0)
         .close()
         .extrude(WIDTH - 2 * PADDING_WIDTH)
@@ -47,26 +44,12 @@ def base():
     return base
 
 
-FOAM_Y = front.segment.WALL_STRENGTH * 3 + front.segment.OUTLET_DUCT_DEPTH
-FOAM_Z = front.HEIGHT - front.segment.EXPANDER_HEIGHT + front.segment.WALL_STRENGTH * 2
-FOAM_DEPTH = 50
-
-
 def full():
     _base = base()
 
     for X1 in SEGMENT_POSITIONS:
-        segment = front.segment.segmentCutout(
-            SEGMENT_WIDTH, FANS_PER_SEGMENT
-        ).translate((X1, 0, 0))
+        segment = front.segment.segmentCutout(SEGMENT_WIDTH).translate((X1, 0, 0))
         _base = _base.cut(segment)
-
-    cableChannel = shapes.extrudePolygon(
-        front.segment.cableChannelPolygon(), "YZ", WIDTH
-    )
-    _base = _base.cut(cableChannel)
-
-    # Cut out foam space
 
     return _base
 
@@ -121,32 +104,14 @@ def splitXSides(slopeDirection):
 import split.vbar
 
 
-def splitX(X):
-    Y1 = front.basePlate.BASE_PLATE_BEGIN
-    Y2 = EXTENDED_DEPTH
-    return split.vbar.splitXYWithVBars(
-        Y1,
-        Y2,
-        -front.basePlate.BASE_PLATE_HEIGHT,
-        front.HEIGHT,
-        front.basePlate.vBars() + front.segment.vBars(),
-        2,
-    ).translate((X, 0, 0))
-
-
 def splitter():
     result = cq.Workplane("XY")
-    for X1 in SEGMENT_POSITIONS:
-        segment = front.segment.splitSegment(SEGMENT_WIDTH, FANS_PER_SEGMENT).translate(
-            (X1, 0, 0)
-        )
-        result = result.union(segment)
 
     result.add(splitXSides(-1).translate((PADDING_WIDTH, 0, 0)))
 
     for X1 in SEGMENT_POSITIONS[1:]:
-        splitSegments = splitX(X1)
-        result = result.union(splitSegments)
+        segment = front.segment.splitSegmentX().translate((X1, 0, 0))
+        result = result.union(segment)
 
     result.add(splitXSides(1).translate((WIDTH - PADDING_WIDTH, 0, 0)))
 

@@ -28,14 +28,11 @@ from dataclasses import dataclass
 #
 #   All curves must wind COUNTERCLOCKWISE when viewed from outside the solid.
 #
-#   Tangent curves represent offset vectors (not positions). At parameter t:
-#       control_point(t) = curve(t) + tangent(t)
-#
-#   Tangents always point AWAY from the surface — i.e. outward from the
-#   boundary, in the direction the surface "faces" at that point.
-#   The loft function handles the sign internally:
-#       start control = start.curve + start.tangent
-#       end control   = end.curve   - end.tangent
+#   A BezierEndpoint pairs a boundary curve with a control curve. The
+#   control curve gives the positions (not offsets) of the inner Bezier
+#   control row at that boundary. The lofted surface interpolates four
+#   rows of poles in U:
+#       start.curve → start.control → end.control → end.curve
 # ---------------------------------------------------------------------------
 
 
@@ -47,26 +44,25 @@ from dataclasses import dataclass
 @dataclass
 class BezierEndpoint:
     """
-    A boundary curve paired with a tangent field that describes how the
-    surface leaves the boundary.
+    A boundary curve paired with the inner Bezier control row at that
+    boundary.
 
     curve:   the actual boundary — a BSpline curve in 3D space
-    tangent: how the surface departs — a BSpline curve whose evaluated
-             values are offset vectors, not positions
+    control: positions of the inner Bezier control row — a BSpline curve
+             of absolute positions (not offsets)
 
-    At parameter t, the tangent vector at curve(t) is tangent(t).
-    The tangent always points AWAY from the surface (outward from the
-    boundary). Its magnitude controls the Bezier handle length.
+    The lofted surface interpolates four rows of poles in U:
+        start.curve → start.control → end.control → end.curve
     """
 
     curve: Geom_BSplineCurve
-    tangent: Geom_BSplineCurve
+    control: Geom_BSplineCurve
 
     def translate(self, offset: tuple[float, float, float]) -> "BezierEndpoint":
         """Return a copy of this endpoint translated by the given offset."""
         return BezierEndpoint(
             curve=offset_curve(self.curve, offset),
-            tangent=self.tangent,  # Tangent is an offset vector, so it doesn't change when we move the curve.
+            control=offset_curve(self.control, offset),
         )
 
 
@@ -109,69 +105,6 @@ def _unify_curves(curves: list[Geom_BSplineCurve]) -> list[Geom_BSplineCurve]:
                 c.InsertKnot(actual_k, target_mult - current_mult)
 
     return curves
-
-
-# ---------------------------------------------------------------------------
-# Curve arithmetic
-# ---------------------------------------------------------------------------
-
-
-def _add_curves(
-    a: Geom_BSplineCurve,
-    b: Geom_BSplineCurve,
-) -> Geom_BSplineCurve:
-    """
-    Compute a new curve whose poles are a.pole[i] + b.pole[i] (as vector).
-    Unifies a and b first so they have compatible structure.
-    """
-    a_copy = a.Copy()
-    b_copy = b.Copy()
-    _unify_curves([a_copy, b_copy])
-
-    result = a_copy.Copy()
-    for i in range(1, result.NbPoles() + 1):
-        pa = a_copy.Pole(i)
-        pb = b_copy.Pole(i)
-        result.SetPole(
-            i,
-            gp_Pnt(
-                pa.X() + pb.X(),
-                pa.Y() + pb.Y(),
-                pa.Z() + pb.Z(),
-            ),
-        )
-        if a_copy.IsRational():
-            result.SetWeight(i, a_copy.Weight(i))
-    return result
-
-
-def _subtract_curves(
-    a: Geom_BSplineCurve,
-    b: Geom_BSplineCurve,
-) -> Geom_BSplineCurve:
-    """
-    Compute a new curve whose poles are a.pole[i] - b.pole[i] (as vector).
-    Unifies a and b first so they have compatible structure.
-    """
-    a_copy = a.Copy()
-    b_copy = b.Copy()
-    _unify_curves([a_copy, b_copy])
-
-    result = a_copy.Copy()
-    for i in range(1, result.NbPoles() + 1):
-        pa = a_copy.Pole(i)
-        pb = b_copy.Pole(i)
-        result.SetPole(
-            i,
-            gp_Pnt(
-                pa.X() - pb.X(),
-                pa.Y() - pb.Y(),
-                pa.Z() - pb.Z(),
-            ),
-        )
-        if a_copy.IsRational():
-            result.SetWeight(i, a_copy.Weight(i))
-    return result
 
 
 # ---------------------------------------------------------------------------
@@ -280,9 +213,9 @@ def _make_cap_face(curve: Geom_BSplineCurve, reverse: bool) -> "TopoDS_Face":
 def closed_bezier_loft(start, end):
     from OCP.Geom import Geom_RectangularTrimmedSurface
 
-    control_start = _add_curves(start.curve, start.tangent)
-    control_end = _subtract_curves(end.curve, end.tangent)
-    curves = _unify_curves([start.curve, control_start, control_end, end.curve])
+    curves = _unify_curves(
+        [start.curve, start.control, end.control, end.curve]
+    )
     surface = _build_surface(curves)
 
     # Split surface into sub-faces at V knots (one per polygon edge)
@@ -575,15 +508,16 @@ def polygon_endpoint(
     start_reference: tuple[float, float, float] | None = None,
 ) -> BezierEndpoint:
     """
-    Create a BezierEndpoint from a closed polygon with per-vertex tangents.
+    Create a BezierEndpoint from a closed polygon with per-vertex tangent
+    offsets.
 
-    The position curve is a closed piecewise-linear BSpline through the
-    given points. The tangent curve is a matching piecewise-linear BSpline
-    through the tangent vectors (interpreted as offsets, not positions).
+    The boundary curve is a closed piecewise-linear BSpline through the
+    given points. The control curve is a matching piecewise-linear BSpline
+    whose poles are `point + tangent` per vertex (absolute positions of
+    the inner Bezier control row at that boundary).
 
-    Both curves share the same knot structure (parameterized by arc length
-    of the position polygon), so tangent(t) corresponds exactly to the
-    tangent vector at curve(t).
+    Both curves share the same knot structure, so control(t) corresponds
+    to the control point paired with curve(t).
 
     n points produce n line segments (the last connects back to the first).
 
@@ -593,7 +527,7 @@ def polygon_endpoint(
         Vertices of the polygon. Must wind CCW when viewed from outside
         the solid.
     tangents : list of (x, y, z) tuples, same length as points
-        Tangent vector at each vertex. Points AWAY from the surface.
+        Offset from each vertex to its inner control point.
     start_reference : (x, y, z) or None, optional
         A reference point in 3D space. The curve will be reparameterized
         to start at the point on the polygon boundary nearest to this
@@ -621,58 +555,36 @@ def polygon_endpoint(
 
     curve = _build_closed_piecewise_linear(points)
 
-    # Build tangent curve with the same knot structure but tangent values as poles
+    # Control curve: same knot structure, poles at point + tangent
     n_out = len(points)
-    tan_pts = [gp_Pnt(*t) for t in tangents]
-    tan_pts.append(gp_Pnt(*tangents[0]))
+    ctrl_pts = [
+        gp_Pnt(p[0] + t[0], p[1] + t[1], p[2] + t[2])
+        for p, t in zip(points, tangents)
+    ]
+    ctrl_pts.append(
+        gp_Pnt(
+            points[0][0] + tangents[0][0],
+            points[0][1] + tangents[0][1],
+            points[0][2] + tangents[0][2],
+        )
+    )
 
-    tan_poles = TColgp_Array1OfPnt(1, n_out + 1)
-    for i, p in enumerate(tan_pts):
-        tan_poles.SetValue(i + 1, p)
+    ctrl_poles = TColgp_Array1OfPnt(1, n_out + 1)
+    for i, p in enumerate(ctrl_pts):
+        ctrl_poles.SetValue(i + 1, p)
 
-    # Copy knot structure from the position curve
     n_knots = curve.NbKnots()
-    tan_knots = TColStd_Array1OfReal(1, n_knots)
-    tan_mults = TColStd_Array1OfInteger(1, n_knots)
+    ctrl_knots = TColStd_Array1OfReal(1, n_knots)
+    ctrl_mults = TColStd_Array1OfInteger(1, n_knots)
     for i in range(1, n_knots + 1):
-        tan_knots.SetValue(i, curve.Knot(i))
-        tan_mults.SetValue(i, curve.Multiplicity(i))
+        ctrl_knots.SetValue(i, curve.Knot(i))
+        ctrl_mults.SetValue(i, curve.Multiplicity(i))
 
-    tangent_curve = Geom_BSplineCurve(tan_poles, tan_knots, tan_mults, 1, False)
+    control_curve = Geom_BSplineCurve(
+        ctrl_poles, ctrl_knots, ctrl_mults, 1, False
+    )
 
-    return BezierEndpoint(curve=curve, tangent=tangent_curve)
-
-
-# ---------------------------------------------------------------------------
-# Tangent curve builders
-# ---------------------------------------------------------------------------
-
-
-def uniform_tangent(
-    curve: Geom_BSplineCurve,
-    direction: tuple[float, float, float],
-) -> Geom_BSplineCurve:
-    """
-    Create a tangent curve where every point has the same tangent vector.
-
-    The returned curve has the same structure as the input curve, but
-    every pole is set to `direction`. When added to the position curve,
-    this produces a uniform offset.
-
-    Parameters
-    ----------
-    curve : Geom_BSplineCurve
-        The boundary curve this tangent belongs to (used for structure).
-    direction : (x, y, z)
-        The tangent vector applied uniformly.
-    """
-    result = curve.Copy()
-    dx, dy, dz = direction
-    for i in range(1, result.NbPoles() + 1):
-        result.SetPole(i, gp_Pnt(dx, dy, dz))
-        if result.IsRational():
-            result.SetWeight(i, 1.0)
-    return result
+    return BezierEndpoint(curve=curve, control=control_curve)
 
 
 # ---------------------------------------------------------------------------
@@ -726,13 +638,19 @@ import port
 def circular_port_to_endpoint(
     port: port.CircularPort, start_reference, tangent_length: float = 1.0
 ) -> BezierEndpoint:
+    """
+    Build a BezierEndpoint for a circular port.
+
+    The control curve is a circle parallel to the boundary, offset along
+    the port's normal axis. The control sits at `curve - port.normal *
+    tangent_length`, so a negative `tangent_length` offsets the control
+    in the +normal direction (matching the prior end-side convention).
+    """
     curve = circle_curve(port.center, port.normal, port.radius, start_reference)
-    return BezierEndpoint(
-        curve=curve,
-        tangent=scaled_curve(
-            uniform_tangent(curve=curve, direction=port.normal),
-            sx=tangent_length,
-            sy=tangent_length,
-            sz=tangent_length,
-        ),
+    nx, ny, nz = port.normal
+    offset = (
+        -nx * tangent_length,
+        -ny * tangent_length,
+        -nz * tangent_length,
     )
+    return BezierEndpoint(curve=curve, control=offset_curve(curve, offset))

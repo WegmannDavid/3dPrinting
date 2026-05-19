@@ -46,10 +46,63 @@ class PolygonPort:
 
         return (nx / mag, ny / mag, nz / mag)
 
-    def transform(self, offset: tuple[float, float, float]) -> "PolygonPort":
+    def translate(self, offset: tuple[float, float, float]) -> "PolygonPort":
         """Return a copy of this port translated by the given offset."""
         dx, dy, dz = offset
         new_vertices = [(v[0] + dx, v[1] + dy, v[2] + dz) for v in self.vertices]
+        return PolygonPort(vertices=new_vertices)
+
+    def rotate(
+        self,
+        axisStartPoint: tuple[float, float, float],
+        axisEndPoint: tuple[float, float, float],
+        angleDegrees: float,
+    ) -> "PolygonPort":
+        """
+        Return a copy of this port rotated around an axis defined by two
+        points, by the given angle in degrees. Matches CadQuery's rotate
+        signature.
+
+        The rotation follows the right-hand rule: looking from
+        axisEndPoint toward axisStartPoint, positive angles rotate
+        counterclockwise.
+        """
+        # Axis direction and a point on the axis
+        sx, sy, sz = axisStartPoint
+        ex, ey, ez = axisEndPoint
+        ax, ay, az = ex - sx, ey - sy, ez - sz
+
+        mag = math.sqrt(ax * ax + ay * ay + az * az)
+        if mag < 1e-12:
+            raise ValueError("Rotation axis has zero length (start == end)")
+        ax, ay, az = ax / mag, ay / mag, az / mag
+
+        angle = math.radians(angleDegrees)
+        c = math.cos(angle)
+        s = math.sin(angle)
+        one_minus_c = 1.0 - c
+
+        def rotate_vec(vx, vy, vz):
+            """Rotate a free vector around the axis direction (Rodrigues)."""
+            dot = ax * vx + ay * vy + az * vz
+            cx = ay * vz - az * vy
+            cy = az * vx - ax * vz
+            cz = ax * vy - ay * vx
+            return (
+                vx * c + cx * s + ax * dot * one_minus_c,
+                vy * c + cy * s + ay * dot * one_minus_c,
+                vz * c + cz * s + az * dot * one_minus_c,
+            )
+
+        new_vertices = []
+        for v in self.vertices:
+            # Rotate vertex: translate so axisStartPoint is at origin,
+            # rotate, then translate back
+            tx, ty, tz = v[0] - sx, v[1] - sy, v[2] - sz
+            rx, ry, rz = rotate_vec(tx, ty, tz)
+            new_vertex = (rx + sx, ry + sy, rz + sz)
+            new_vertices.append(new_vertex)
+
         return PolygonPort(vertices=new_vertices)
 
 
@@ -79,7 +132,7 @@ class CircularPort:
         if self.radius <= 0:
             raise ValueError(f"Radius must be positive, got {self.radius}")
 
-    def transform(self, offset: tuple[float, float, float]) -> "CircularPort":
+    def translate(self, offset: tuple[float, float, float]) -> "CircularPort":
         """Return a copy of this port translated by the given offset."""
         dx, dy, dz = offset
         new_center = (self.center[0] + dx, self.center[1] + dy, self.center[2] + dz)

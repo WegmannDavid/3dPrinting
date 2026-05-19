@@ -25,6 +25,9 @@ class Feature:
     def mirror(self, plane):
         return Feature(self.feature.mirror(plane), self.join.mirror(plane))
 
+    def union(self, other):
+        return Feature(self.feature.union(other.feature), self.join.union(other.join))
+
 
 def addFeature(splitter, feature: Feature):
     u = splitter.union(feature.feature)

@@ -94,12 +94,14 @@ def splitYZWithVBars(Y1, Y2, Z1, Z2, vbarPositions, contactArea):
     return plane
 
 
-def spread(Y1, Y2, num):
+def spread(Y1, Y2, Z1, Z2, num, contactArea):
     offset = (Y2 - Y1) / num
-
-    result = list()
+    height = Z2 - Z1
+    result = split.Feature(cq.Workplane("XY"), cq.Workplane("XY"))
 
     for i in range(0, num):
-        result.append(Y1 + offset * (i + 0.5))
+        result = result.union(
+            feature(height, contactArea).translate((0, Y1 + offset * (i + 0.5), Z1))
+        )
 
     return result

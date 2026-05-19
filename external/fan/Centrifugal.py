@@ -3,7 +3,7 @@ import shapes
 
 WALL_THICKNESS = NOZZLE * 4
 
-DEPTH = 30
+DEPTH = 28
 SIZE = 130
 
 SCREW_DISTANCE = 49
@@ -26,7 +26,7 @@ def screwCutouts():
     return s1.union(s2).union(s3)
 
 
-HUB_WALL_STRENGTH = 3
+HUB_WALL_STRENGTH = 2
 HUB_RADIUS = 38
 HUB_DEPTH = 4.5
 
@@ -36,7 +36,7 @@ def hubCutout():
 
 
 IMPELLER_RADIUS = 51
-IMPELLER_DEPTH = 20
+IMPELLER_DEPTH = 19
 
 IMPELLER_Y_OFFSET = HUB_WALL_STRENGTH + HUB_DEPTH
 
@@ -47,9 +47,9 @@ def impellerCutout():
     )
 
 
-REDUCER_IN_DEPTH = 11
+REDUCER_IN_DEPTH = 12
 REDUCER_OUT_Y1 = 10
-REDUCER_OUT_Y2 = 20
+REDUCER_OUT_Y2 = 18
 
 import duct.solid
 
@@ -254,7 +254,7 @@ def cableCutout():
     )
 
 
-def housingVolume():
+def housing():
     v = volume()
     sc = screwCutouts()
     hc = hubCutout().translate((0, HUB_WALL_STRENGTH, 0))
@@ -272,7 +272,7 @@ import split.vbar
 
 
 def splitter():
-    reference = housingVolume()
+    reference = housing()
     ch = WALL_THICKNESS * 3
     h = SIZE / 2 - ch
     w = IMPELLER_RADIUS * 2 + WALL_THICKNESS * 2
@@ -305,11 +305,11 @@ def splitter():
     splitter = split.addFeature(splitter, rb1)
     splitter = split.addFeature(splitter, rb2)
 
-    cutoutDepth = 7
+    cutoutDepth = 8
 
     lc1 = shapes.boxFromBounds(
         0,
-        x1 - split.vbar.X_REQUIRED,
+        x1 / 2,
         NOZZLE * 2,
         cutoutDepth,
         SIZE - ch - WALL_THICKNESS * 2,
@@ -318,7 +318,7 @@ def splitter():
 
     lc2 = shapes.boxFromBounds(
         0,
-        x1 - split.vbar.X_REQUIRED,
+        x1 / 2,
         DEPTH - cutoutDepth,
         DEPTH - NOZZLE * 2,
         SIZE - ch - WALL_THICKNESS * 2,
@@ -329,3 +329,51 @@ def splitter():
     rc = lc.mirror("YZ").translate((SIZE, 0, 0))
 
     return splitter.union(lc).union(rc)
+
+
+def export():
+    c = external.fan.Centrifugal.housing()
+    s = external.fan.Centrifugal.splitter()
+
+    segments = c.cut(s).solids()
+    segments = sorted(
+        segments, key=lambda s: (s.Center().x, s.Center().y, s.Center().z)
+    )
+
+    import export
+
+    export.step(c, "c.step")
+    export.step(segments[0], "cBottom.step")
+    export.step(segments[1], "cTop.step")
+
+
+import port
+
+
+class CentrifugalFanSet:
+    housing: cq.Workplane
+    cutout: cq.Workplane
+    inlet: port.CircularPort
+
+    def __init__(self, housing, cutout, inlet):
+        self.housing = housing
+        self.cutout = cutout
+        self.inlet = inlet
+
+    def translate(self, d):
+        return CentrifugalFanSet(
+            housing=self.housing.translate(d),
+            cutout=self.cutout.translate(d),
+            inlet=self.inlet.translate(d),
+        )
+
+
+def centrifugalFanSet(intakeCutoutExtension):
+    h = housing()
+    c = volume().translate((SIZE / 2, 0, SIZE / 2))
+    i = port.CircularPort(
+        center=(SIZE / 2, DEPTH + intakeCutoutExtension, SIZE / 2),
+        normal=(0, 1, 0),
+        radius=INTAKE_RADIUS,
+    )
+    return CentrifugalFanSet(housing=h, cutout=c, inlet=i)
