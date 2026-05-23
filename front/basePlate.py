@@ -75,8 +75,12 @@ import split
 def vBars():
     num = 4
 
-    result = list()
-
-    for Y in split.vbar.spread(BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION, 0, num):
-        result.append((Y, -BASE_PLATE_HEIGHT, 0))
+    result = split.vbar.spread(
+        BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION,
+        0,
+        -front.basePlate.BASE_PLATE_HEIGHT,
+        0,
+        num,
+        3,
+    )
     return result

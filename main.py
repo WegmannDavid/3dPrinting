@@ -1,11 +1,6 @@
 import front
 
 import external.fan.Centrifugal
-import duct.circular
-import duct.bellmouth
-
-b = duct.bellmouth.bellmouthWithStrutsByArea(20, 500, 4)
-duct.circular.test(37, 500, 4, 10)
 
 external.fan.Centrifugal.export()
 
@@ -13,4 +8,13 @@ full = front.full()
 splitter = front.splitter()
 foam = front.foam()
 
-i = 0
+segments = full.cut(splitter).solids()
+segments = sorted(segments, key=lambda s: (s.Center().x, s.Center().y, s.Center().z))
+
+import export
+
+export.step(segments[0], "left.step")
+export.step(segments[1], "leftBottom.step")
+export.step(segments[2], "leftTop.step")
+
+front.exportForFem()

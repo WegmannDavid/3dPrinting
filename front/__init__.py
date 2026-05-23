@@ -15,7 +15,7 @@ HEIGHT = 210
 
 
 SEGMENT_WIDTH = 250
-NUM_SEGMENTS = 1
+NUM_SEGMENTS = 4
 ALL_SEGMENTS_WIDTH = SEGMENT_WIDTH * NUM_SEGMENTS
 PADDING_WIDTH = (WIDTH - ALL_SEGMENTS_WIDTH - 2 * SIDE_WALL_WIDTH) / 2
 
@@ -109,6 +109,10 @@ def splitter():
 
     result.add(splitXSides(-1).translate((PADDING_WIDTH, 0, 0)))
 
+    for X1 in SEGMENT_POSITIONS:
+        segment = front.segment.segmentSplitTop(SEGMENT_WIDTH).translate((X1, 0, 0))
+        result = result.union(segment)
+
     for X1 in SEGMENT_POSITIONS[1:]:
         segment = front.segment.splitSegmentX().translate((X1, 0, 0))
         result = result.union(segment)
@@ -155,58 +159,8 @@ def exportForFem():
     _foam = foam()
     _air = air().cut(_full.union(_foam))
 
-    airCutout = (
-        shapes.box(ALL_SEGMENTS_WIDTH, front.segment.FOAM_OFFSET_Y + 1, 1)
-        .translate(
-            (
-                0,
-                0,
-                front.segment.OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE
-                + front.segment.WALL_STRENGTH
-                + 1,
-            )
-        )
-        .translate((PADDING_WIDTH + SIDE_WALL_WIDTH, 0, 0))
-    )
-    _air = _air.cut(airCutout)
-
-    outletAir = shapes.box(
-        ALL_SEGMENTS_WIDTH - front.segment.OUTLET_X_GAP_WIDTH,
-        front.segment.OUTLET_DUCT_DEPTH,
-        1,
-    ).translate(
-        (
-            PADDING_WIDTH + SIDE_WALL_WIDTH + front.segment.OUTLET_X_GAP_WIDTH / 2,
-            front.segment.WALL_STRENGTH,
-            -front.basePlate.BASE_PLATE_HEIGHT - 1,
-        )
-    )
-    inletAir = shapes.box(
-        ALL_SEGMENTS_WIDTH - front.segment.OUTLET_X_GAP_WIDTH,
-        front.segment.OUTLET_DUCT_DEPTH,
-        1,
-    ).translate(
-        (
-            PADDING_WIDTH + SIDE_WALL_WIDTH + front.segment.OUTLET_X_GAP_WIDTH / 2,
-            front.segment.WALL_STRENGTH,
-            front.segment.OUTLET_DUCT_HEIGHT_ABOVE_BASEPLATE,
-        )
-    )
-
-    actualInletAir = shapes.box(
-        ALL_SEGMENTS_WIDTH,
-        front.segment.OUTLET_DUCT_DEPTH,
-        1,
-    ).translate(
-        (
-            PADDING_WIDTH + SIDE_WALL_WIDTH + front.segment.OUTLET_X_GAP_WIDTH / 2,
-            EXTENDED_DEPTH + 20,
-            -front.basePlate.BASE_PLATE_HEIGHT - 1,
-        )
-    )
-
     export.combined_nastran(
-        [_air.union(actualInletAir).union(outletAir), _foam],
+        [_air, _foam],
         "build/System.nas",
         max_element_size=10,
     )

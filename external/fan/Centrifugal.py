@@ -28,7 +28,7 @@ def screwCutouts():
 
 HUB_WALL_STRENGTH = 2
 HUB_RADIUS = 38
-HUB_DEPTH = 4.5
+HUB_DEPTH = 4
 
 
 def hubCutout():
@@ -36,7 +36,7 @@ def hubCutout():
 
 
 IMPELLER_RADIUS = 51
-IMPELLER_DEPTH = 19
+IMPELLER_DEPTH = 20
 
 IMPELLER_Y_OFFSET = HUB_WALL_STRENGTH + HUB_DEPTH
 
@@ -263,7 +263,7 @@ def housing():
     inc = intakeCutout().translate((0, DEPTH - INTAKE_DEPTH, 0))
     cc = cableCutout()
     str = struts()
-    result = v.cut(sc).cut(impc).cut(rc).cut(inc).cut(hc).union(str).cut(cc)
+    result = v.cut(sc).cut(impc).cut(rc).cut(inc).cut(cc).union(str).cut(hc)
     return result.translate((SIZE / 2, 0, SIZE / 2))
 
 

@@ -1,7 +1,7 @@
 from prelude import *
 import split
 
-Y_EXTENSION = NOZZLE * 1.5  # accessible
+Y_EXTENSION = NOZZLE * 2  # accessible
 HEIGHT = NOZZLE * 5  # private
 Y_OFFSET = NOZZLE * 4 + Y_EXTENSION
 
@@ -34,8 +34,8 @@ def hbarCutout(width):
     )
 
 
-def hbarFeature(width):
-    cutout = hbarCutout(width).translate((0, 0, EPSILON))
-    bar = hbar(width).translate((0, 0, -EPSILON))
+def feature(width):
+    cutout = hbarCutout(width).translate((0, 0, 0))
+    bar = hbar(width).translate((0, 0, EPSILON * 2))
     gap = cutout.cut(bar)
-    return gap
+    return split.Feature(gap, bar)

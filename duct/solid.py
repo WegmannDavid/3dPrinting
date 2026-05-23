@@ -187,6 +187,30 @@ def rectDuctYZAlongX(port1: RectPort, port2: RectPort) -> cq.Workplane:
     return result
 
 
+def arrayAlongXOfDuctsAlongZ(
+    num, topX1, topX2, botX1, botX2, depth, Y1, Y2, topSep, botSep
+):
+    topWidth = topX2 - topX1
+    topSegmentWidth = (topWidth - (num - 1) * topSep) / num
+    botWidth = botX2 - botX1
+    botSegmentWidth = (botWidth - (num - 1) * botSep) / num
+    result = cq.Workplane("XY")
+    for i in range(num):
+        result = result.union(
+            bezierDuctProfile(
+                portDim="X",
+                lengthDim="Z",
+                s1=botX1 + i * (botSegmentWidth + botSep),
+                e1=botX1 + i * (botSegmentWidth + botSep) + botSegmentWidth,
+                s2=topX1 + i * (topSegmentWidth + topSep),
+                e2=topX1 + i * (topSegmentWidth + topSep) + topSegmentWidth,
+                l1=Y1,
+                l2=Y2,
+            ).extrude(depth)
+        )
+    return result
+
+
 def guidingVaneAlongZ(Width1, Width2, Depth, Height):
     result = bezierDuctProfile(
         portDim="X",
