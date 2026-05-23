@@ -6,6 +6,10 @@ import shapes
 
 import front
 
+# Every segment is the same width; it used to be threaded through every
+# function as a parameter, but it was always front.SEGMENT_WIDTH.
+WIDTH = front.SEGMENT_WIDTH
+
 WALL_STRENGTH = NOZZLE * 8
 
 OUTLET_DEPTH = 2
@@ -33,7 +37,7 @@ FAN_OFFSET = WALL_STRENGTH + 10 + external.fan.Centrifugal.SIZE
 FAN_CENTER_OFFSET = FAN_OFFSET - external.fan.Centrifugal.SIZE / 2
 
 
-def fanSet(WIDTH):
+def _build_fanSet():
     fan = external.fan.Centrifugal.centrifugalFanSet(10)
     fan = fan.translate(
         (
@@ -48,7 +52,7 @@ def fanSet(WIDTH):
 SCREW_PADDING = external.m3.TOP_OFFSET * 2
 
 
-def foam(WIDTH):
+def _build_foam():
     f1 = shapes.boxFromBounds(
         WALL_STRENGTH,
         WIDTH - WALL_STRENGTH,
@@ -86,13 +90,13 @@ def foam(WIDTH):
         f1.union(f2)
         .union(f3)
         .cut(outletWall)
-        .cut(fanSet(WIDTH).cutout)
+        .cut(fanSet.cutout)
         .cut(screwCutoutl)
         .cut(screwCutoutr)
     )
 
 
-def outletCutout(WIDTH):
+def _build_outletCutout():
     bottomNarrowing = duct.solid.bezierDuctProfile(
         portDim="Y",
         lengthDim="Z",
@@ -119,7 +123,7 @@ def outletCutout(WIDTH):
     return result
 
 
-def innerDuctCutout(WIDTH):
+def _build_innerDuctCutout():
     w1 = 90
     result = (
         cq.Workplane("XZ")
@@ -139,9 +143,9 @@ def innerDuctCutout(WIDTH):
     return result
 
 
-def ductCutout(WIDTH):
-    i = innerDuctCutout(WIDTH)
-    o = outletCutout(WIDTH)
+def _build_ductCutout():
+    i = innerDuctCutout
+    o = outletCutout
     return i.union(o).translate((0, WALL_STRENGTH + FOAM_DEPTH * 2, 0))
 
 
@@ -150,7 +154,7 @@ FILTER_ANGLE = -math.degrees(
 )
 
 
-def filterSet(WIDTH):
+def _build_filterSet():
     import front.filter
 
     return (
@@ -172,10 +176,10 @@ def filterSet(WIDTH):
 import loft
 
 
-def collectorCutout(WIDTH):
-    fs = filterSet(WIDTH)
+def _build_collectorCutout():
+    fs = filterSet
 
-    fan = fanSet(WIDTH)
+    fan = fanSet
     return loft.closed_bezier_loft(
         loft.polygon_endpoint(
             fs.port.vertices,
@@ -190,16 +194,16 @@ def collectorCutout(WIDTH):
 import external.fan
 
 
-def segmentCutout(WIDTH):
-    f = foam(WIDTH)
+def _build_segmentCutout():
+    f = foam
 
-    duct = ductCutout(WIDTH)
+    duct = ductCutout
 
-    filter = filterSet(WIDTH)
+    filter = filterSet
 
-    fan = fanSet(WIDTH)
+    fan = fanSet
 
-    collector = collectorCutout(WIDTH)
+    collector = collectorCutout
 
     return f.union(duct).union(filter.cutout).union(collector).union(fan.cutout)
 
@@ -207,7 +211,7 @@ def segmentCutout(WIDTH):
 SPLIT_Z = front.HEIGHT - WALL_STRENGTH - FOAM_DEPTH - 40
 
 
-def segmentSplitTop(WIDTH):
+def _build_segmentSplitTop():
     topBox = shapes.box(WIDTH, front.EXTENDED_DEPTH, WALL_STRENGTH).translate(
         (0, 0, front.HEIGHT - WALL_STRENGTH)
     )
@@ -276,7 +280,7 @@ def segmentSplitTop(WIDTH):
     return result
 
 
-def splitSegmentX():
+def _build_splitSegmentX():
     import split.vbar
 
     contact = 3
@@ -312,3 +316,21 @@ def splitSegmentX():
         contact,
     )
     return split.addFeature(p, v1.union(v2).union(v3).union(front.basePlate.vBars()))
+
+
+# ---------------------------------------------------------------------------
+# A segment is identical across the unit, so every piece is built exactly
+# once here (at import) and reused. Callers translate copies; CadQuery's
+# translate/cut/union return new objects, so the shared originals are safe.
+# Assigned in dependency order: each builder reads the globals defined above.
+# ---------------------------------------------------------------------------
+fanSet = _build_fanSet()
+foam = _build_foam()
+outletCutout = _build_outletCutout()
+innerDuctCutout = _build_innerDuctCutout()
+ductCutout = _build_ductCutout()
+filterSet = _build_filterSet()
+collectorCutout = _build_collectorCutout()
+segmentCutout = _build_segmentCutout()
+segmentSplitTop = _build_segmentSplitTop()
+splitSegmentX = _build_splitSegmentX()

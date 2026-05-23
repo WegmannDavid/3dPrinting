@@ -48,7 +48,7 @@ def full():
     _base = base()
 
     for X1 in SEGMENT_POSITIONS:
-        segment = front.segment.segmentCutout(SEGMENT_WIDTH).translate((X1, 0, 0))
+        segment = front.segment.segmentCutout.translate((X1, 0, 0))
         _base = _base.cut(segment)
 
     return _base
@@ -110,11 +110,11 @@ def splitter():
     result.add(splitXSides(-1).translate((PADDING_WIDTH, 0, 0)))
 
     for X1 in SEGMENT_POSITIONS:
-        segment = front.segment.segmentSplitTop(SEGMENT_WIDTH).translate((X1, 0, 0))
+        segment = front.segment.segmentSplitTop.translate((X1, 0, 0))
         result = result.union(segment)
 
     for X1 in SEGMENT_POSITIONS[1:]:
-        segment = front.segment.splitSegmentX().translate((X1, 0, 0))
+        segment = front.segment.splitSegmentX.translate((X1, 0, 0))
         result = result.union(segment)
 
     result.add(splitXSides(1).translate((WIDTH - PADDING_WIDTH, 0, 0)))
@@ -146,7 +146,7 @@ def air():
 def foam():
     result = cq.Workplane("XY")
     for X1 in SEGMENT_POSITIONS:
-        segmentFoam = front.segment.foam(SEGMENT_WIDTH).translate((X1, 0, 0))
+        segmentFoam = front.segment.foam.translate((X1, 0, 0))
         result = result.union(segmentFoam)
     return result
 
