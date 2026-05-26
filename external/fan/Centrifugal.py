@@ -27,12 +27,29 @@ def screwCutouts():
 
 
 HUB_WALL_STRENGTH = 2
+
+
+def screwExtension():
+    cornerOffset = SCREW_DISTANCE * math.sqrt(3) / 3
+    e1 = (
+        external.sunkhead.extension(3, 1)
+        .rotate((0, 0, 0), (1, 0, 0), 90)
+        .translate((0, HUB_WALL_STRENGTH, -cornerOffset))
+    )
+    e2 = e1.rotate((0, 0, 0), (0, 1, 0), 120)
+    e3 = e1.rotate((0, 0, 0), (0, 1, 0), 240)
+    return e1.union(e2).union(e3)
+
+
 HUB_RADIUS = 38
 HUB_DEPTH = 4
 
 
 def hubCutout():
-    return shapes.cylinderAlongY(HUB_RADIUS, HUB_DEPTH)
+    c = shapes.cylinderAlongY(HUB_RADIUS, HUB_DEPTH).translate(
+        (0, HUB_WALL_STRENGTH, 0)
+    )
+    return c
 
 
 IMPELLER_RADIUS = 51
@@ -132,7 +149,9 @@ INTAKE_DEPTH = DEPTH - HUB_WALL_STRENGTH - HUB_DEPTH - IMPELLER_DEPTH
 
 
 def intakeCutout():
-    return shapes.cylinderAlongY(INTAKE_RADIUS, INTAKE_DEPTH)
+    return shapes.cylinderAlongY(INTAKE_RADIUS, INTAKE_DEPTH).translate(
+        (0, DEPTH - INTAKE_DEPTH, 0)
+    )
 
 
 def volume():
@@ -257,13 +276,14 @@ def cableCutout():
 def housing():
     v = volume()
     sc = screwCutouts()
-    hc = hubCutout().translate((0, HUB_WALL_STRENGTH, 0))
+    hc = hubCutout()
     impc = impellerCutout()
     rc = reducerCutout()
-    inc = intakeCutout().translate((0, DEPTH - INTAKE_DEPTH, 0))
+    inc = intakeCutout()
     cc = cableCutout()
     str = struts()
-    result = v.cut(sc).cut(impc).cut(rc).cut(inc).cut(cc).union(str).cut(hc)
+    se = screwExtension()
+    result = v.cut(impc).cut(rc).cut(inc).cut(cc).cut(hc).union(str).union(se).cut(sc)
     return result.translate((SIZE / 2, 0, SIZE / 2))
 
 
@@ -354,17 +374,20 @@ class CentrifugalFanSet:
     housing: cq.Workplane
     cutout: cq.Workplane
     inlet: port.CircularPort
+    inletCutout: cq.Workplane
 
-    def __init__(self, housing, cutout, inlet):
+    def __init__(self, housing, cutout, inlet, inletCutout):
         self.housing = housing
         self.cutout = cutout
         self.inlet = inlet
+        self.inletCutout = inletCutout
 
     def translate(self, d):
         return CentrifugalFanSet(
             housing=self.housing.translate(d),
             cutout=self.cutout.translate(d),
             inlet=self.inlet.translate(d),
+            inletCutout=self.inletCutout.translate(d),
         )
 
 
@@ -376,4 +399,5 @@ def centrifugalFanSet(intakeCutoutExtension):
         normal=(0, 1, 0),
         radius=INTAKE_RADIUS,
     )
-    return CentrifugalFanSet(housing=h, cutout=c, inlet=i)
+    ic = shapes.cylinderAlongY(i.radius, -intakeCutoutExtension).translate(i.center)
+    return CentrifugalFanSet(housing=h, cutout=c, inlet=i, inletCutout=ic)

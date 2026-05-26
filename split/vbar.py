@@ -1,4 +1,3 @@
-from front.basePlate import BASE_PLATE_EXTENSION
 from prelude import *
 import split
 
@@ -72,9 +71,6 @@ def vbarCutout(height, contactArea):
     half = middle.union(side).union(side2).union(contact1).union(contact2)
     whole = half.union(half.mirror("XZ"))
     return whole
-
-
-import shapes
 
 
 def feature(height, contactArea):

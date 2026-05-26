@@ -22,28 +22,28 @@ INNER_DUCT_DEPTH = 8
 FOAM_BOX_DEPTH = (
     WALL_STRENGTH + FOAM_DEPTH * 2 + INNER_DUCT_DEPTH + FOAM_DEPTH * 2 + WALL_STRENGTH
 )
-FILTER_DEPTH = 12
+FILTER_DEPTH = 15
 
 
 import duct.solid
 
-OUTLET_DUCT_HEIGHT_ABOVE_BASE_PLATE = 20
+OUTLET_DUCT_HEIGHT_ABOVE_BASE_PLATE = 30
 OUTLET_STRUT_STRENGTH = NOZZLE * 6
 
 
 import external.fan.Centrifugal
 
-FAN_OFFSET = WALL_STRENGTH + 10 + external.fan.Centrifugal.SIZE
+FAN_OFFSET = WALL_STRENGTH + FOAM_DEPTH + external.fan.Centrifugal.SIZE
 FAN_CENTER_OFFSET = FAN_OFFSET - external.fan.Centrifugal.SIZE / 2
 
 
 def _build_fanSet():
-    fan = external.fan.Centrifugal.centrifugalFanSet(10)
+    fan = external.fan.Centrifugal.centrifugalFanSet(FOAM_DEPTH)
     fan = fan.translate(
         (
             WIDTH - FAN_OFFSET,
-            WALL_STRENGTH + 10,
-            front.HEIGHT - external.fan.Centrifugal.SIZE - WALL_STRENGTH - 10,
+            WALL_STRENGTH + FOAM_DEPTH,
+            front.HEIGHT - external.fan.Centrifugal.SIZE - WALL_STRENGTH - FOAM_DEPTH,
         )
     )
     return fan
@@ -86,6 +86,7 @@ def _build_foam():
         )
     )
     screwCutoutr = screwCutoutl.translate((WIDTH - SCREW_PADDING, 0, 0))
+    ic = fanSet.inletCutout
     return (
         f1.union(f2)
         .union(f3)
@@ -93,11 +94,13 @@ def _build_foam():
         .cut(fanSet.cutout)
         .cut(screwCutoutl)
         .cut(screwCutoutr)
+        .cut(ic)
     )
 
 
 def _build_outletCutout():
-    bottomNarrowing = duct.solid.bezierDuctProfile(
+    MIDDLE_Z = 20
+    reducer = duct.solid.bezierDuctProfile(
         portDim="Y",
         lengthDim="Z",
         s1=0,
@@ -105,9 +108,19 @@ def _build_outletCutout():
         s2=3,
         e2=5,
         l1=OUTLET_DUCT_HEIGHT_ABOVE_BASE_PLATE,
-        l2=-front.basePlate.BASE_PLATE_HEIGHT,
+        l2=MIDDLE_Z,
     ).extrude(WIDTH)
-    segments = duct.solid.arrayAlongXOfDuctsAlongZ(
+    expander = duct.solid.bezierDuctProfile(
+        portDim="Y",
+        lengthDim="Z",
+        s1=0,
+        e1=INNER_DUCT_DEPTH,
+        s2=3,
+        e2=5,
+        l1=-front.basePlate.BASE_PLATE_HEIGHT,
+        l2=MIDDLE_Z,
+    ).extrude(WIDTH)
+    outletSegments = duct.solid.arrayAlongXOfDuctsAlongZ(
         num=5,
         topX1=WALL_STRENGTH,
         topX2=WIDTH - WALL_STRENGTH,
@@ -119,7 +132,7 @@ def _build_outletCutout():
         Y1=-front.basePlate.BASE_PLATE_HEIGHT,
         Y2=OUTLET_DUCT_HEIGHT_ABOVE_BASE_PLATE,
     )
-    result = bottomNarrowing.intersect(segments)
+    result = reducer.union(expander).intersect(outletSegments)
     return result
 
 
@@ -153,24 +166,48 @@ FILTER_ANGLE = -math.degrees(
     cq.Vector(0, 0, 1).getAngle(cq.Vector(0, front.DEPTH_EXTENSION, front.HEIGHT))
 )
 
+HANDLE_HEIGHT = 30
+HANDLE_DEPTH = 18
+
 
 def _build_filterSet():
     import front.filter
 
-    return (
+    FILTER_Z = HANDLE_HEIGHT - front.basePlate.BASE_PLATE_HEIGHT
+
+    untrimmed = (
         front.filter.set(
             DEPTH=FILTER_DEPTH,
-            HEIGHT=front.HEIGHT,
+            HEIGHT=front.HEIGHT - FILTER_Z,
             WIDTH=WIDTH - WALL_STRENGTH * 2,
-            DOWNWARD_EXTENSION=front.basePlate.BASE_PLATE_HEIGHT,
+            HANDLE_HEIGHT=HANDLE_HEIGHT,
+            HANDLE_DEPTH=HANDLE_DEPTH,
         )
-        .translate((WALL_STRENGTH, front.DEPTH - FILTER_DEPTH, 0))
+        .mirror("XZ")
+        .translate(
+            (
+                WALL_STRENGTH,
+                front.DEPTH,
+                FILTER_Z,
+            )
+        )
         .rotate(
-            (0, front.DEPTH - FILTER_DEPTH, 0),
-            (1, front.DEPTH - FILTER_DEPTH, 0),
+            (0, front.DEPTH - HANDLE_DEPTH, -front.basePlate.BASE_PLATE_HEIGHT),
+            (1, front.DEPTH - HANDLE_DEPTH, -front.basePlate.BASE_PLATE_HEIGHT),
             FILTER_ANGLE,
         )
     )
+    untrimmed.female = untrimmed.female.cut(
+        shapes.boxFromBounds(
+            0,
+            WIDTH,
+            0,
+            front.DEPTH,
+            -2 * front.basePlate.BASE_PLATE_HEIGHT,
+            -front.basePlate.BASE_PLATE_HEIGHT,
+        )
+    )
+    return untrimmed
 
 
 import loft
@@ -191,47 +228,54 @@ def _build_collectorCutout():
     )
 
 
-import external.fan
-
-
 def _build_segmentCutout():
     f = foam
 
     duct = ductCutout
 
-    filter = filterSet
+    filter = filterSet.cutout
 
-    fan = fanSet
+    fan = fanSet.cutout
 
     collector = collectorCutout
 
-    return f.union(duct).union(filter.cutout).union(collector).union(fan.cutout)
+    cable = cableCutout
+
+    intakeCutout = fanSet.inletCutout
+
+    return (
+        f.union(duct)
+        .union(filter)
+        .union(collector)
+        .union(fan)
+        .union(cable)
+        .union(intakeCutout)
+    )
 
 
-SPLIT_Z = front.HEIGHT - WALL_STRENGTH - FOAM_DEPTH - 40
+SPLIT_Z1 = front.HEIGHT - FAN_CENTER_OFFSET
+SPLIT_Z2 = front.HEIGHT - WALL_STRENGTH - FOAM_DEPTH
 
 
 def _build_segmentSplitTop():
-    topBox = shapes.box(WIDTH, front.EXTENDED_DEPTH, WALL_STRENGTH).translate(
-        (0, 0, front.HEIGHT - WALL_STRENGTH)
+    topBox = shapes.box(
+        WIDTH, front.EXTENDED_DEPTH, WALL_STRENGTH + FOAM_DEPTH
+    ).translate((0, 0, SPLIT_Z2))
+    PADDING_X = (
+        WALL_STRENGTH
+        + front.filter.RIM
+        + front.filter.CLAMP_STRENGTH
+        + front.filter.GAP
     )
-    topExtensionBox = shapes.boxFromBounds(
-        SCREW_PADDING,
-        WIDTH - SCREW_PADDING,
+    topFilterExtensions = shapes.boxFromBounds(
+        PADDING_X,
+        WIDTH - PADDING_X,
         FOAM_BOX_DEPTH - WALL_STRENGTH,
         front.EXTENDED_DEPTH,
-        SPLIT_Z,
+        SPLIT_Z1,
         front.HEIGHT,
     )
-    topFilterBox = shapes.boxFromBounds(
-        0,
-        WIDTH,
-        FOAM_BOX_DEPTH + SCREW_PADDING,
-        front.EXTENDED_DEPTH,
-        SPLIT_Z,
-        front.HEIGHT,
-    )
-    top = topBox.union(topExtensionBox).union(topFilterBox)
+    top = topBox.union(topFilterExtensions)
 
     import split
 
@@ -252,32 +296,34 @@ def _build_segmentSplitTop():
 
     import split.hbar
 
-    CLIP_RAD = external.fan.Centrifugal.INTAKE_RADIUS
+    CLIP_RAD = external.fan.Centrifugal.INTAKE_RADIUS + 10
 
     h1 = split.hbar.feature(WIDTH - WALL_STRENGTH * 2).translate(
-        (WALL_STRENGTH, WALL_STRENGTH / 2, front.HEIGHT - WALL_STRENGTH)
+        (WALL_STRENGTH, WALL_STRENGTH / 2, SPLIT_Z2)
     )
 
-    h2 = split.hbar.feature(
-        WIDTH - SCREW_PADDING - FAN_CENTER_OFFSET - CLIP_RAD
-    ).translate(
+    h2 = split.hbar.feature(WIDTH - PADDING_X - FAN_CENTER_OFFSET - CLIP_RAD).translate(
         (
-            SCREW_PADDING,
+            PADDING_X,
             FOAM_BOX_DEPTH - WALL_STRENGTH / 2,
-            SPLIT_Z,
+            SPLIT_Z1,
         )
     )
-    h3 = split.hbar.feature(FAN_CENTER_OFFSET - SCREW_PADDING - CLIP_RAD).translate(
+    h3 = split.hbar.feature(FAN_CENTER_OFFSET - PADDING_X - CLIP_RAD).translate(
         (
-            WIDTH - (FAN_CENTER_OFFSET - CLIP_RAD),
+            WIDTH - FAN_CENTER_OFFSET + CLIP_RAD,
             FOAM_BOX_DEPTH - WALL_STRENGTH / 2,
-            SPLIT_Z,
+            SPLIT_Z1,
         )
     )
     result = topShell.union(s12).union(s34)
     result = split.addFeature(result, h1.union(h2).union(h3))
 
     return result
+
+
+def _build_cableCutout():
+    return shapes.box(WIDTH, 10, 3).translate((0, WALL_STRENGTH, SPLIT_Z2))
 
 
 def _build_splitSegmentX():
@@ -295,27 +341,19 @@ def _build_splitSegmentX():
         0,
         WALL_STRENGTH + FOAM_DEPTH * 2,
         -front.basePlate.BASE_PLATE_HEIGHT,
-        front.HEIGHT - WALL_STRENGTH,
+        SPLIT_Z2,
         2,
         contact,
     )
     v2 = split.vbar.spread(
         WALL_STRENGTH + FOAM_DEPTH * 2 + INNER_DUCT_DEPTH,
-        FOAM_BOX_DEPTH + external.m3.TOP_OFFSET * 2,
-        -front.basePlate.BASE_PLATE_HEIGHT,
-        front.HEIGHT - WALL_STRENGTH,
-        2,
-        contact,
-    )
-    v3 = split.vbar.spread(
-        FOAM_BOX_DEPTH + external.m3.TOP_OFFSET * 2,
         front.DEPTH,
         -front.basePlate.BASE_PLATE_HEIGHT,
-        SPLIT_Z,
-        1,
+        SPLIT_Z2,
+        3,
         contact,
     )
-    return split.addFeature(p, v1.union(v2).union(v3).union(front.basePlate.vBars()))
+    return split.addFeature(p, v1.union(v2).union(front.basePlate.vBars()))
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +362,7 @@ def _build_splitSegmentX():
 # translate/cut/union return new objects, so the shared originals are safe.
 # Assigned in dependency order: each builder reads the globals defined above.
 # ---------------------------------------------------------------------------
+cableCutout = _build_cableCutout()
 fanSet = _build_fanSet()
 foam = _build_foam()
 outletCutout = _build_outletCutout()
@@ -334,3 +373,94 @@ collectorCutout = _build_collectorCutout()
 segmentCutout = _build_segmentCutout()
 segmentSplitTop = _build_segmentSplitTop()
 splitSegmentX = _build_splitSegmentX()
+
+
+def pins(NUMX, NUMZ, WIDTH, HEIGHT, PADDING):
+    pin = shapes.box(NOZZLE * 2, NOZZLE * 8, NOZZLE * 2).translate(
+        (-NOZZLE, -NOZZLE * 4, -NOZZLE)
+    )
+
+    result = cq.Workplane("XY")
+    for i in range(NUMX):
+        for j in range(NUMZ):
+            x = PADDING + i * (WIDTH - PADDING * 2) / (NUMX - 1)
+            z = PADDING + j * (HEIGHT - PADDING * 2) / (NUMZ - 1)
+            result = result.add(pin.translate((x, 0, z)))
+
+    return result.combine(glue=True)
+
+
+def cutBoxTemplate(WIDTH, DEPTH, HEIGHT, BOTTOM_EXTENSION):
+    return (
+        shapes.box(
+            WIDTH + WALL_STRENGTH * 2,
+            DEPTH + WALL_STRENGTH * 2,
+            BOTTOM_EXTENSION + HEIGHT + WALL_STRENGTH,
+        )
+        .translate((-WALL_STRENGTH, -WALL_STRENGTH, -WALL_STRENGTH - BOTTOM_EXTENSION))
+        .cut(
+            shapes.box(
+                WIDTH,
+                DEPTH,
+                HEIGHT,
+            )
+        )
+    )
+
+
+def exportTemplates():
+    f1 = shapes.boxFromBounds(
+        WALL_STRENGTH,
+        WIDTH - WALL_STRENGTH,
+        0,
+        WALL_STRENGTH,
+        0,
+        front.HEIGHT - WALL_STRENGTH - FOAM_DEPTH,
+    )
+    pins1 = pins(
+        20,
+        16,
+        WIDTH - WALL_STRENGTH * 2,
+        front.HEIGHT - WALL_STRENGTH * 2 - FOAM_DEPTH,
+        1,
+    ).translate((WALL_STRENGTH, 0, WALL_STRENGTH))
+    t1 = f1.union(pins1).cut(fanSet.cutout.translate((0, -FOAM_DEPTH * 2, 0)))
+
+    pins2 = pins(
+        12,
+        12,
+        external.fan.Centrifugal.SIZE,
+        external.fan.Centrifugal.SIZE,
+        10,
+    ).translate(
+        (
+            WIDTH - FOAM_DEPTH - external.fan.Centrifugal.SIZE - WALL_STRENGTH,
+            0,
+            front.HEIGHT - WALL_STRENGTH - FOAM_DEPTH - external.fan.Centrifugal.SIZE,
+        )
+    )
+
+    t2 = f1.union(pins2).intersect(fanSet.cutout.translate((0, -FOAM_DEPTH * 2, 0)))
+
+    ic = fanSet.inletCutout.translate((0, -FOAM_BOX_DEPTH + FOAM_DEPTH, 0))
+
+    t2 = t2.cut(ic)
+
+    t3 = cutBoxTemplate(
+        external.fan.Centrifugal.SIZE,
+        FOAM_DEPTH * 2,
+        external.fan.Centrifugal.SIZE + 40,
+        WALL_STRENGTH * 4,
+    ).cut(
+        shapes.box(
+            external.fan.Centrifugal.SIZE + WALL_STRENGTH * 2,
+            1.6,
+            external.fan.Centrifugal.SIZE + 40,
+        ).translate((-WALL_STRENGTH, FOAM_DEPTH - 0.8, 0))
+    )
+
+    import export
+
+    export.step(t1, "foamTemplate1.step")
+    export.step(t2, "foamTemplate2.step")
+    export.step(t3, "foamTemplate3.step")

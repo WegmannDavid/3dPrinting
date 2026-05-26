@@ -105,9 +105,33 @@ class PolygonPort:
 
         return PolygonPort(vertices=new_vertices)
 
+    def mirror(self, plane: str) -> "PolygonPort":
+        """
+        Return a copy of this port mirrored across a coordinate plane.
 
-import math
-from dataclasses import dataclass
+        The plane is named by the two axes that lie within it, e.g. "XY"
+        (z = 0), "YZ" (x = 0), or "XZ" (y = 0); order and case are ignored.
+        Reflection negates the coordinate along the axis not in the plane.
+
+        The vertex order is reversed so that the right-hand-rule normal
+        stays consistent with the mirrored geometry: a plain reflection
+        flips handedness, which would otherwise invert the computed normal.
+        """
+        axes = plane.upper()
+        if len(axes) != 2 or set(axes) - {"X", "Y", "Z"} or len(set(axes)) != 2:
+            raise ValueError(
+                f"Plane must name two distinct axes from X, Y, Z (e.g. 'XY'), got {plane!r}"
+            )
+
+        # The axis to negate is the one not named in the plane.
+        negate = ({"X", "Y", "Z"} - set(axes)).pop()
+        index = {"X": 0, "Y": 1, "Z": 2}[negate]
+
+        def reflect(v):
+            return tuple(-c if i == index else c for i, c in enumerate(v))
+
+        new_vertices = [reflect(v) for v in reversed(self.vertices)]
+        return PolygonPort(vertices=new_vertices)
 
 
 @dataclass

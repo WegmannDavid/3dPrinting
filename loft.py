@@ -1,5 +1,5 @@
 import cadquery as cq
-from OCP.gp import gp_Pnt, gp_Vec, gp_Circ, gp_Ax2, gp_Dir, gp_Pln
+from OCP.gp import gp_Pnt, gp_Ax2, gp_Dir
 from OCP.Geom import Geom_BSplineCurve, Geom_BSplineSurface, Geom_Circle
 from OCP.GeomConvert import GeomConvert
 from OCP.TColgp import TColgp_Array1OfPnt, TColgp_Array2OfPnt

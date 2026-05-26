@@ -1,7 +1,5 @@
 import cadquery as cq
 
-from prelude import *
-
 
 def box(width, depth, height, centered=False):
     return cq.Workplane("XY").box(width, depth, height, centered=centered)

@@ -16,3 +16,15 @@ def sunkhead(headRad, headHeight, freeRad, freeHeight, gripRad, height):
         .close()
     )
     return profile.revolve(360, (0, 0, 0), (0, 1, 0))
+
+
+def extension(rad, height):
+    profile = (
+        cq.Workplane("YZ")
+        .moveTo(0, -height)
+        .lineTo(rad, -height)
+        .lineTo(rad + height, 0)
+        .lineTo(0, 0)
+        .close()
+    )
+    return profile.revolve(360, (0, 0, 0), (0, 1, 0))

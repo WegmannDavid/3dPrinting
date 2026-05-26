@@ -15,7 +15,7 @@ HEIGHT = 210
 
 
 SEGMENT_WIDTH = 250
-NUM_SEGMENTS = 4
+NUM_SEGMENTS = 1
 ALL_SEGMENTS_WIDTH = SEGMENT_WIDTH * NUM_SEGMENTS
 PADDING_WIDTH = (WIDTH - ALL_SEGMENTS_WIDTH - 2 * SIDE_WALL_WIDTH) / 2
 
@@ -101,9 +101,6 @@ def splitXSides(slopeDirection):
     ).translate((0, front.basePlate.BASE_PLATE_BEGIN, 0))
 
 
-import split.vbar
-
-
 def splitter():
     result = cq.Workplane("XY")
 
@@ -134,13 +131,30 @@ def splitter():
 
 def air():
 
-    volume = shapes.box(
+    volume = shapes.boxFromBounds(
+        0,
         ALL_SEGMENTS_WIDTH,
-        DEPTH + DEPTH_EXTENSION,
+        -10,
+        DEPTH + DEPTH_EXTENSION + front.segment.INNER_DUCT_DEPTH,
+        0,
         HEIGHT + front.basePlate.BASE_PLATE_HEIGHT,
     ).translate((0, 0, -front.basePlate.BASE_PLATE_HEIGHT))
 
-    return volume.translate((PADDING_WIDTH + SIDE_WALL_WIDTH, 0, 0))
+    outletVolumeExtension = shapes.box(
+        ALL_SEGMENTS_WIDTH,
+        2,
+        1,
+    ).translate(
+        (
+            0,
+            front.segment.WALL_STRENGTH + front.segment.FOAM_DEPTH * 2,
+            -front.basePlate.BASE_PLATE_HEIGHT - 1,
+        )
+    )
+
+    return volume.union(outletVolumeExtension).translate(
+        (PADDING_WIDTH + SIDE_WALL_WIDTH, 0, 0)
+    )
 
 
 def foam():
@@ -151,16 +165,48 @@ def foam():
     return result
 
 
+def filterSolids():
+    result = cq.Workplane("XY")
+    for X1 in SEGMENT_POSITIONS:
+        segmentFilterSolid = front.segment.filterSet.male.union(
+            front.segment.filterSet.female
+        ).translate((X1, 0, 0))
+        result = result.union(segmentFilterSolid)
+    return result
+
+
+def fanSolids():
+    result = cq.Workplane("XY")
+    for X1 in SEGMENT_POSITIONS:
+        segmentFan = front.segment.fanSet.housing.translate((X1, 0, 0))
+        result = result.union(segmentFan)
+    return result
+
+
+def filterMedia():
+    result = cq.Workplane("XY")
+    for X1 in SEGMENT_POSITIONS:
+        segmentFilterMedia = front.segment.filterSet.medium.translate((X1, 0, 0))
+        result = result.union(segmentFilterMedia)
+    return result
+
+
 import export
 
 
 def exportForFem():
+
     _full = full()
     _foam = foam()
-    _air = air().cut(_full.union(_foam))
+    _filterSolids = filterSolids()
+    _fanSolids = fanSolids()
+    _filterMedia = filterMedia()
+    _air = air().cut(
+        _full.union(_foam).union(_filterSolids).union(_filterMedia).union(_fanSolids)
+    )
 
     export.combined_nastran(
-        [_air, _foam],
+        [_air, _foam, _filterMedia],
         "build/System.nas",
         max_element_size=10,
     )
