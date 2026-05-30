@@ -42,8 +42,8 @@ class FilterSet:
 
 CLAMP_STRENGTH = NOZZLE * 4
 GAP = NOZZLE
-NARROWING_DEPTH = NOZZLE
-NARROWING_HEIGHT = NOZZLE * 2
+NARROWING_DEPTH = 1
+NARROWING_HEIGHT = 3
 RIM = 15
 FRAME_STRENGTH = NOZZLE * 4
 
@@ -98,12 +98,14 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
     _areaCutout = (
         (
             cq.Workplane("YZ")
-            .moveTo(CLAMP_STRENGTH, RIM - CLAMP_STRENGTH + FRAME_STRENGTH)
-            .lineTo(NOZZLE * 2, RIM + FRAME_STRENGTH)
-            .lineTo(0, RIM + FRAME_STRENGTH)
-            .lineTo(0, HEIGHT - RIM - FRAME_STRENGTH)
-            .lineTo(NOZZLE * 2, HEIGHT - RIM - FRAME_STRENGTH)
-            .lineTo(CLAMP_STRENGTH, HEIGHT - RIM + CLAMP_STRENGTH - FRAME_STRENGTH)
+            .moveTo(CLAMP_STRENGTH, RIM - CLAMP_STRENGTH + FRAME_STRENGTH + GAP)
+            # .lineTo(NOZZLE * 2, RIM + FRAME_STRENGTH + GAP)
+            .lineTo(0, RIM + FRAME_STRENGTH + GAP)
+            .lineTo(0, HEIGHT - RIM - FRAME_STRENGTH - GAP)
+            # .lineTo(NOZZLE * 2, HEIGHT - RIM - FRAME_STRENGTH - GAP)
+            .lineTo(
+                CLAMP_STRENGTH, HEIGHT - RIM + CLAMP_STRENGTH - FRAME_STRENGTH - GAP
+            )
             .close()
         )
         .extrude(WIDTH - 2 * RIM - 2 * GAP - 2 * CLAMP_STRENGTH, combine=False)
@@ -115,14 +117,17 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
     import shapes
 
     FRAME_WIDTH = WIDTH - 2 * (CLAMP_STRENGTH + GAP)
-    FRAME_HEIGHT = HEIGHT - 2 * CLAMP_STRENGTH
+    FRAME_HEIGHT = HEIGHT - 2 * (CLAMP_STRENGTH + GAP)
 
     def framePart(outerWallOffset, depth, pincherDepth):
         base = shapes.box(FRAME_WIDTH, FRAME_STRENGTH, FRAME_HEIGHT)
         innerWidth = FRAME_WIDTH - 2 * RIM
         innerHeight = FRAME_HEIGHT - 2 * RIM
+        cutoutBase = shapes.box(innerWidth, FRAME_STRENGTH * 2, innerHeight).translate(
+            (RIM, 0, RIM)
+        )
         cutouts = shapes.rectPatterXZ(
-            innerWidth, FRAME_STRENGTH, innerHeight, 5, 4, FRAME_STRENGTH
+            innerWidth, FRAME_STRENGTH * 2, innerHeight, 5, 4, FRAME_STRENGTH
         ).translate((RIM, 0, RIM))
         outerWall = shapes.rectTubeAlongY(
             FRAME_WIDTH - 2 * outerWallOffset,
@@ -136,7 +141,40 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
             innerHeight + 2 * FRAME_STRENGTH,
             FRAME_STRENGTH,
         ).translate((RIM - FRAME_STRENGTH, 0, RIM - FRAME_STRENGTH))
-        return base.cut(cutouts).union(outerWall).union(pincher)
+        return base.union(cutoutBase).cut(cutouts).union(outerWall).union(pincher)
+
+    def handleFingerCutout(depth):
+        WIDTH1 = 30
+        WIDTH2 = 10
+        WIDTH12 = WIDTH1 + WIDTH2
+        WIDTH3 = 20
+        WIDTH = WIDTH12 + WIDTH3
+        HEIGHT1 = FRAME_STRENGTH * 2
+        HEIGHT2 = 30 - HEIGHT1 - FRAME_STRENGTH
+        HEIGHT = HEIGHT1 + HEIGHT2
+        profile = (
+            cq.Workplane("XZ")
+            .moveTo(0, 0)
+            .lineTo(0, FRAME_STRENGTH)
+            .bezier(
+                [
+                    (0, FRAME_STRENGTH),
+                    (0, FRAME_STRENGTH + HEIGHT / 2),  # control point
+                    (WIDTH12 / 2, FRAME_STRENGTH + HEIGHT),
+                    (WIDTH12 + WIDTH3 / 2, FRAME_STRENGTH + HEIGHT),
+                    (WIDTH, FRAME_STRENGTH + HEIGHT1 + HEIGHT2 * 3 / 4),
+                    (WIDTH, FRAME_STRENGTH + HEIGHT1 + HEIGHT2 * 1 / 4),
+                    (WIDTH12 + WIDTH3 / 2, FRAME_STRENGTH + HEIGHT1),
+                    (WIDTH12, FRAME_STRENGTH + HEIGHT1),
+                    (WIDTH1 + WIDTH2 / 2, FRAME_STRENGTH + HEIGHT1),
+                    (WIDTH1, FRAME_STRENGTH + HEIGHT1 / 2),
+                    (WIDTH1, FRAME_STRENGTH),
+                ]
+            )
+            .lineTo(WIDTH1, 0)
+            .close()
+        )
+        return profile.extrude(-depth)
 
     def handle(handleHeight, narrowDepth):
         profile = (
@@ -148,7 +186,11 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
             .lineTo(0, 0)
             .close()
         )
-        return profile.extrude(FRAME_WIDTH)
+        fingerCutoutLeft = handleFingerCutout(DEPTH).translate(
+            (20, FRAME_STRENGTH, -handleHeight)
+        )
+        fingerCutoutRight = fingerCutoutLeft.mirror("YZ").translate((FRAME_WIDTH, 0, 0))
+        return profile.extrude(FRAME_WIDTH).cut(fingerCutoutLeft).cut(fingerCutoutRight)
 
     def filterParts():
         pincherGap = 4
@@ -158,7 +200,7 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
         male = (
             framePart(
                 FRAME_STRENGTH + GAP,
-                pincherDepth,
+                SLOT_DEPTH - FRAME_STRENGTH * 2,
                 pincherDepth - FRAME_STRENGTH,
             )
             .mirror("XZ")
@@ -166,27 +208,33 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
         )
         female = framePart(0, SLOT_DEPTH - FRAME_STRENGTH * 2, FRAME_STRENGTH * 2)
         _handle = handle(
-            HANDLE_HEIGHT + CLAMP_STRENGTH,
+            HANDLE_HEIGHT + CLAMP_STRENGTH + GAP,
             DEPTH - FRAME_STRENGTH * 2 - CLAMP_STRENGTH * 2,
         )
         return male, female.union(_handle)
 
     male, female = filterParts()
 
-    male = male.translate((CLAMP_STRENGTH + GAP, CLAMP_STRENGTH, CLAMP_STRENGTH))
-    female = female.translate((CLAMP_STRENGTH + GAP, CLAMP_STRENGTH, CLAMP_STRENGTH))
+    male = male.translate((CLAMP_STRENGTH + GAP, CLAMP_STRENGTH, CLAMP_STRENGTH + GAP))
+    female = female.translate(
+        (CLAMP_STRENGTH + GAP, CLAMP_STRENGTH, CLAMP_STRENGTH + GAP)
+    )
 
     p = port.PolygonPort(
         [
-            (WIDTH - RIM - FRAME_STRENGTH - GAP, DEPTH, RIM + FRAME_STRENGTH),
-            (WIDTH - RIM - FRAME_STRENGTH - GAP, DEPTH, HEIGHT - RIM - FRAME_STRENGTH),
-            (RIM + FRAME_STRENGTH + GAP, DEPTH, HEIGHT - RIM - FRAME_STRENGTH),
-            (RIM + FRAME_STRENGTH + GAP, DEPTH, RIM + FRAME_STRENGTH),
+            (WIDTH - RIM - FRAME_STRENGTH - GAP, DEPTH, RIM + FRAME_STRENGTH + GAP),
+            (
+                WIDTH - RIM - FRAME_STRENGTH - GAP,
+                DEPTH,
+                HEIGHT - RIM - FRAME_STRENGTH - GAP,
+            ),
+            (RIM + FRAME_STRENGTH + GAP, DEPTH, HEIGHT - RIM - FRAME_STRENGTH - GAP),
+            (RIM + FRAME_STRENGTH + GAP, DEPTH, RIM + FRAME_STRENGTH + GAP),
         ],
     )
     medium = (
         shapes.box(FRAME_WIDTH, SLOT_DEPTH, FRAME_HEIGHT)
-        .translate((CLAMP_STRENGTH + GAP, CLAMP_STRENGTH, CLAMP_STRENGTH))
+        .translate((CLAMP_STRENGTH + GAP, CLAMP_STRENGTH, CLAMP_STRENGTH + GAP))
         .cut(male.union(female))
     )
 

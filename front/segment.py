@@ -22,7 +22,7 @@ INNER_DUCT_DEPTH = 8
 FOAM_BOX_DEPTH = (
     WALL_STRENGTH + FOAM_DEPTH * 2 + INNER_DUCT_DEPTH + FOAM_DEPTH * 2 + WALL_STRENGTH
 )
-FILTER_DEPTH = 15
+FILTER_DEPTH = 16
 
 
 import duct.solid
@@ -180,7 +180,7 @@ def _build_filterSet():
             DEPTH=FILTER_DEPTH,
             HEIGHT=front.HEIGHT - FILTER_Z,
             WIDTH=WIDTH - WALL_STRENGTH * 2,
-            HANDLE_HEIGHT=HANDLE_HEIGHT,
+            HANDLE_HEIGHT=HANDLE_HEIGHT + WALL_STRENGTH,
             HANDLE_DEPTH=HANDLE_DEPTH,
         )
         .mirror("XZ")
@@ -192,8 +192,8 @@ def _build_filterSet():
             )
         )
         .rotate(
-            (0, front.DEPTH - HANDLE_DEPTH, -front.basePlate.BASE_PLATE_HEIGHT),
-            (1, front.DEPTH - HANDLE_DEPTH, -front.basePlate.BASE_PLATE_HEIGHT),
+            (0, front.DEPTH - HANDLE_DEPTH, 0),
+            (1, front.DEPTH - HANDLE_DEPTH, 0),
             FILTER_ANGLE,
         )
     )
@@ -220,10 +220,10 @@ def _build_collectorCutout():
     return loft.closed_bezier_loft(
         loft.polygon_endpoint(
             fs.port.vertices,
-            [(0, -WALL_STRENGTH * 2, 0)] * 4,
+            [(0, -WALL_STRENGTH * 1.5, 0)] * 4,
         ),
         loft.circular_port_to_endpoint(
-            fan.inlet, start_reference=(0, 0, 0), tangent_length=-WALL_STRENGTH * 3
+            fan.inlet, start_reference=(0, 0, 0), tangent_length=-WALL_STRENGTH * 2
         ),
     )
 
@@ -281,7 +281,7 @@ def _build_segmentSplitTop():
 
     topShell = split.shell(top)
 
-    s = external.m3.m3(40, WALL_STRENGTH).translate(
+    s = external.m3.m3(40, front.HEIGHT - SPLIT_Z2).translate(
         (
             external.m3.TOP_OFFSET,
             0,
@@ -290,7 +290,7 @@ def _build_segmentSplitTop():
     )
 
     s1 = s.translate((0, WALL_STRENGTH + FOAM_DEPTH * 2 + INNER_DUCT_DEPTH / 2, 0))
-    s2 = s.translate((0, FOAM_BOX_DEPTH + external.m3.TOP_OFFSET, 0))
+    s2 = s.translate((WALL_STRENGTH, FOAM_BOX_DEPTH + external.m3.TOP_OFFSET, 0))
     s12 = s1.union(s2)
     s34 = s12.mirror("YZ").translate((WIDTH, 0, 0))
 

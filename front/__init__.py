@@ -15,7 +15,7 @@ HEIGHT = 210
 
 
 SEGMENT_WIDTH = 250
-NUM_SEGMENTS = 1
+NUM_SEGMENTS = 4
 ALL_SEGMENTS_WIDTH = SEGMENT_WIDTH * NUM_SEGMENTS
 PADDING_WIDTH = (WIDTH - ALL_SEGMENTS_WIDTH - 2 * SIDE_WALL_WIDTH) / 2
 
@@ -135,7 +135,7 @@ def air():
         0,
         ALL_SEGMENTS_WIDTH,
         -10,
-        DEPTH + DEPTH_EXTENSION + front.segment.INNER_DUCT_DEPTH,
+        DEPTH + DEPTH_EXTENSION + front.segment.OUTLET_DEPTH,
         0,
         HEIGHT + front.basePlate.BASE_PLATE_HEIGHT,
     ).translate((0, 0, -front.basePlate.BASE_PLATE_HEIGHT))

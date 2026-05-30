@@ -4,7 +4,7 @@ import external.sunkhead
 _freeRad = 1.75
 _HeadRad = 3.1
 _HeadHeight = 0.4
-_rad = 1.2
+_rad = 1.3
 
 
 def m3(height, freeHeight):

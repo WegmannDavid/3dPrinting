@@ -8,7 +8,6 @@ full = front.full()
 splitter = front.splitter()
 foam = front.foam()
 
-front.exportForFem()
 
 filterMale = front.segment.filterSet.male.translate((front.SEGMENT_POSITIONS[0], 0, 0))
 filterFemale = front.segment.filterSet.female.translate(
@@ -20,10 +19,17 @@ segments = sorted(segments, key=lambda s: (s.Center().x, s.Center().y, s.Center(
 
 import export
 
-export.step(segments[0], "left.step")
-export.step(segments[1], "leftBottom.step")
-export.step(segments[2], "top.step")
 
 import front.segment
 
 external.fan.Centrifugal.export()
+
+front.exportForFem()
+
+export.step(filterMale, "male.step")
+export.step(filterFemale, "female.step")
+export.step(segments[0], "left.step")
+export.step(segments[1], "top.step")
+export.step(segments[2], "leftBottom.step")
+export.step(segments[4], "middleBottom.step")
+export.step(segments[8], "rightBottom.step")
