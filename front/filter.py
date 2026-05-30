@@ -196,20 +196,20 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
         pincherGap = 4
 
         pincherDepth = SLOT_DEPTH - FRAME_STRENGTH - pincherGap
-
+        depth = SLOT_DEPTH - FRAME_STRENGTH - NARROWING_DEPTH - GAP
         male = (
             framePart(
                 FRAME_STRENGTH + GAP,
-                SLOT_DEPTH - FRAME_STRENGTH * 2,
+                depth,
                 pincherDepth - FRAME_STRENGTH,
             )
             .mirror("XZ")
             .translate((0, SLOT_DEPTH, 0))
         )
-        female = framePart(0, SLOT_DEPTH - FRAME_STRENGTH * 2, FRAME_STRENGTH * 2)
+        female = framePart(0, depth, FRAME_STRENGTH * 2)
         _handle = handle(
             HANDLE_HEIGHT + CLAMP_STRENGTH + GAP,
-            DEPTH - FRAME_STRENGTH * 2 - CLAMP_STRENGTH * 2,
+            depth,
         )
         return male, female.union(_handle)
 

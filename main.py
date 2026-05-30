@@ -1,7 +1,5 @@
 import front
 
-front.segment.exportTemplates()
-
 import external.fan.Centrifugal
 
 full = front.full()
@@ -33,3 +31,6 @@ export.step(segments[1], "top.step")
 export.step(segments[2], "leftBottom.step")
 export.step(segments[4], "middleBottom.step")
 export.step(segments[8], "rightBottom.step")
+export.step(segments[9], "right.step")
+
+front.segment.exportTemplates()

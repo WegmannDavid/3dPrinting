@@ -37,28 +37,88 @@ def base():
         .lineTo(DEPTH + DEPTH_EXTENSION, HEIGHT)
         .lineTo(DEPTH, 0)
         .close()
-        .extrude(WIDTH - 2 * PADDING_WIDTH)
-    ).translate((PADDING_WIDTH, 0, 0))
+        .extrude(WIDTH - 2 * front.basePlate.FOAM_RIM_INSET)
+    ).translate((front.basePlate.FOAM_RIM_INSET, 0, 0))
 
     base = top.union(front.basePlate.basePlate(WIDTH))
     return base
 
 
+SLOPE_SEAL_WIDTH = 2
+
+
+def leftCutout():
+    mainCutout = shapes.box(
+        PADDING_WIDTH
+        - front.basePlate.FOAM_RIM_INSET
+        - SLOPE_SEAL_WIDTH
+        - front.basePlate.WALL_STRENGTH,
+        DEPTH - front.basePlate.WALL_STRENGTH - 10,
+        HEIGHT,
+    )
+
+    backCutout = shapes.box(
+        PADDING_WIDTH
+        - front.basePlate.FOAM_RIM_INSET
+        - SLOPE_SEAL_WIDTH
+        - front.basePlate.WALL_STRENGTH * 2,
+        front.basePlate.BASE_PLATE_EXTENSION,
+        HEIGHT,
+    ).translate((front.basePlate.WALL_STRENGTH, front.DEPTH, 0))
+
+    cableCutout = shapes.box(PADDING_WIDTH, front.segment.WALL_STRENGTH + 10, HEIGHT)
+
+    import external.m3
+
+    mountingHole = (
+        external.m3.m3(EXTENDED_DEPTH * 2, 10)
+        .rotate((0, 0, 0), (1, 0, 0), 90)
+        .translate((0, 0, front.HEIGHT * 1 / 3))
+    )
+
+    m1 = mountingHole.translate((PADDING_WIDTH * 1 / 4, 0, 0))
+    m2 = mountingHole.translate((PADDING_WIDTH * 2 / 4, 0, 0))
+    m3 = mountingHole.translate((PADDING_WIDTH * 3 / 4, 0, 0))
+
+    m4 = mountingHole.translate((PADDING_WIDTH * 1 / 4, 0, front.HEIGHT * 1 / 3))
+    m5 = mountingHole.translate((PADDING_WIDTH * 2 / 4, 0, front.HEIGHT * 1 / 3))
+    m6 = mountingHole.translate((PADDING_WIDTH * 3 / 4, 0, front.HEIGHT * 1 / 3))
+
+    m = m1.union(m2).union(m3).union(m4).union(m5).union(m6)
+
+    result = mainCutout.union(backCutout).union(cableCutout).union(m)
+    return result
+
+
 def full():
     _base = base()
+
+    _lc = leftCutout()
+
+    _base = _base.cut(_lc)
 
     for X1 in SEGMENT_POSITIONS:
         segment = front.segment.segmentCutout.translate((X1, 0, 0))
         _base = _base.cut(segment)
 
+    _base = _base.cut(_lc.mirror("YZ", (WIDTH / 2, 0, 0)))
+
+    cableCutout = shapes.box(
+        front.basePlate.FOAM_RIM_INSET, 15, front.basePlate.BASE_PLATE_HEIGHT
+    ).translate(
+        (
+            0,
+            front.DEPTH - 15 - front.basePlate.WALL_STRENGTH,
+            -front.basePlate.BASE_PLATE_HEIGHT,
+        )
+    )
+    _base = _base.cut(cableCutout)
+
     return _base
 
 
-SLOPE_SEAL_WIDTH = 2
-
-
 def splitXSides(slopeDirection):
-    return (
+    profile = (
         cq.Workplane("XZ")
         .moveTo(-EPSILON * slopeDirection, HEIGHT)
         .lineTo(-EPSILON * slopeDirection, 0)
@@ -84,21 +144,14 @@ def splitXSides(slopeDirection):
         )
         .lineTo(
             (SLOPE_SEAL_WIDTH + front.basePlate.FOAM_RIM_INSET) * slopeDirection,
-            0,
-        )
-        .lineTo(
-            EPSILON * slopeDirection,
-            0,
-        )
-        .lineTo(
-            EPSILON * slopeDirection,
             HEIGHT,
         )
         .close()
-        .extrude(
-            -front.basePlate.BASE_PLATE_DEPTH - front.basePlate.BASE_PLATE_EXTENSION
-        )
+    )
+    result = profile.extrude(
+        -front.basePlate.BASE_PLATE_DEPTH - front.basePlate.BASE_PLATE_EXTENSION
     ).translate((0, front.basePlate.BASE_PLATE_BEGIN, 0))
+    return result
 
 
 def splitter():

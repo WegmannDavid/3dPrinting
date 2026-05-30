@@ -296,7 +296,7 @@ def _build_segmentSplitTop():
 
     import split.hbar
 
-    CLIP_RAD = external.fan.Centrifugal.INTAKE_RADIUS + 10
+    CLIP_RAD = external.fan.Centrifugal.INTAKE_RADIUS + 15
 
     h1 = split.hbar.feature(WIDTH - WALL_STRENGTH * 2).translate(
         (WALL_STRENGTH, WALL_STRENGTH / 2, SPLIT_Z2)
@@ -446,21 +446,7 @@ def exportTemplates():
 
     t2 = t2.cut(ic)
 
-    t3 = cutBoxTemplate(
-        external.fan.Centrifugal.SIZE,
-        FOAM_DEPTH * 2,
-        external.fan.Centrifugal.SIZE + 40,
-        WALL_STRENGTH * 4,
-    ).cut(
-        shapes.box(
-            external.fan.Centrifugal.SIZE + WALL_STRENGTH * 2,
-            1.6,
-            external.fan.Centrifugal.SIZE + 40,
-        ).translate((-WALL_STRENGTH, FOAM_DEPTH - 0.8, 0))
-    )
-
     import export
 
     export.step(t1, "foamTemplate1.step")
     export.step(t2, "foamTemplate2.step")
-    export.step(t3, "foamTemplate3.step")

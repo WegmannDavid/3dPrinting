@@ -18,6 +18,8 @@ BASE_PLATE_HEIGHT = 10
 BASE_PLATE_BEGIN = front.DEPTH - BASE_PLATE_DEPTH
 BASE_PLATE_EXTENSION = front.DEPTH_EXTENSION
 
+WALL_STRENGTH = NOZZLE * 8
+
 
 def basePlate(width):
     plate = (
@@ -43,10 +45,6 @@ def basePlate(width):
 
     insetr = insetl.translate((front.WIDTH - FOAM_RIM_INSET, 0, 0))
 
-    cableCutout = shapes.box(3, 15, BASE_PLATE_HEIGHT).translate(
-        (0, front.DEPTH - 15, -BASE_PLATE_HEIGHT)
-    )
-
     bottomHoles = bottomDrillings(
         [
             BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION + external.m3.FREE_OFFSET,
@@ -54,7 +52,7 @@ def basePlate(width):
         ]
     )
 
-    return plate.cut(insetl).cut(insetr).cut(cableCutout)
+    return plate.cut(insetl).cut(insetr)
 
 
 def bottomDrillings(Xpositions):
