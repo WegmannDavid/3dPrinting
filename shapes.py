@@ -69,3 +69,79 @@ def cylinderAlongY(radius, depth):
 def extrudePolygon(polygon, workplane="XY", length=1.0):
     """Extrude a 2D polygon (list of (x, y) tuples) along the workplane normal."""
     return cq.Workplane(workplane).polyline(list(polygon)).close().extrude(length)
+
+
+import math
+
+SQRT2 = math.sqrt(2)
+
+
+def fractalPatternB(SIZE, DEPTH, GAP, recursion_depth):
+    if recursion_depth > 0:
+        newSize = SIZE / 2 - GAP / 2
+        r11 = fractalPatternB(newSize, DEPTH, GAP, recursion_depth - 1).translate(
+            (0, 0, 0)
+        )
+        r21 = fractalPatternB(newSize, DEPTH, GAP, recursion_depth - 1).translate(
+            (newSize + GAP, 0, 0)
+        )
+        r12 = fractalPatternB(newSize, DEPTH, GAP, recursion_depth - 1).translate(
+            (0, 0, newSize + GAP)
+        )
+        r22 = fractalPatternB(newSize, DEPTH, GAP, recursion_depth - 1).translate(
+            (newSize + GAP, 0, newSize + GAP)
+        )
+        return r11.union(r21).union(r12).union(r22)
+    else:
+        return box(SIZE, DEPTH, SIZE)
+
+
+def fractalPatternA(SIZE, DEPTH, GAP, recursion_depthA, recursion_depthB):
+    b = fractalPatternB(SIZE, DEPTH, GAP, recursion_depthB)
+    if recursion_depthA > 0:
+        newSize = SIZE / 2 - GAP / 2
+        l = fractalPatternA(
+            newSize, DEPTH, GAP, recursion_depthA - 1, recursion_depthB - 1
+        ).translate((SIZE + GAP, 0, 0))
+        r = fractalPatternA(
+            newSize, DEPTH, GAP, recursion_depthA - 1, recursion_depthB - 1
+        ).translate((0, 0, SIZE + GAP))
+        return b.union(l).union(r)
+    else:
+        return b
+
+
+def supportsAlongYForZInner(
+    SIZE, DEPTH, GAP, inner_recursion_depth, outer_recursion_depth
+):
+    section = box(SIZE * outer_recursion_depth, DEPTH, SIZE * outer_recursion_depth)
+    section = section.translate(
+        (-SIZE * outer_recursion_depth + SIZE, 0, -SIZE * outer_recursion_depth + SIZE)
+    )
+    fp = fractalPatternB(SIZE, DEPTH, GAP, inner_recursion_depth)
+
+    for i in range(outer_recursion_depth):
+        for j in range(outer_recursion_depth):
+            fp = fp.union(
+                fractalPatternB(SIZE, DEPTH, GAP, inner_recursion_depth).translate(
+                    ((SIZE + GAP) * -i, 0, (SIZE + GAP) * -j)
+                )
+            )
+    return fp
+
+
+def supportsAlongYForZ(WIDTH, DEPTH, HEIGHT, GAP, recursion_depthA, recursion_depthB):
+    section = box(WIDTH, DEPTH, HEIGHT)
+    fp = fractalPatternA(
+        WIDTH * SQRT2 / 2, DEPTH, GAP, recursion_depthA, recursion_depthB
+    )
+    fp = fp.rotate((0, 0, 0), (0, 1, 0), -45).translate((WIDTH / 2, 0, HEIGHT - WIDTH))
+    fp = fp.intersect(section)
+
+    supports = supportsAlongYForZInner(
+        WIDTH * SQRT2 / 2, DEPTH, GAP, recursion_depthB, math.ceil(HEIGHT / WIDTH) + 1
+    )
+    supports = supports.rotate((0, 0, 0), (0, 1, 0), -45).translate(
+        (WIDTH / 2, 0, HEIGHT - WIDTH)
+    )
+    return fp.union(supports).intersect(section)

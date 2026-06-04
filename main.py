@@ -1,6 +1,9 @@
 import front
-
+import controlPanel
 import external.fan.Centrifugal
+import shapes
+
+controlPanel.export()
 
 full = front.full()
 splitter = front.splitter()

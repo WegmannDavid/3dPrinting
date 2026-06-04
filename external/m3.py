@@ -18,21 +18,9 @@ TOP_OFFSET = _HeadRad + NOZZLE * 2
 OFFSET = _rad + NOZZLE * 2
 
 
-def cornerCutouts(height, freeHeight, width, depth):
-    screwCutout = external.m3.m3(height, freeHeight)
+def m3Mounting(depth, strength):
+    import shapes
 
-    s1 = screwCutout.translate((external.m3.TOP_OFFSET, external.m3.TOP_OFFSET, 0))
-    s2 = screwCutout.translate(
-        (width - external.m3.TOP_OFFSET, external.m3.TOP_OFFSET, 0)
+    return shapes.cylinderAlongY(_rad + strength, depth).cut(
+        shapes.cylinderAlongY(_rad, depth)
     )
-    s3 = screwCutout.translate(
-        (external.m3.TOP_OFFSET, depth - external.m3.TOP_OFFSET, 0)
-    )
-    s4 = screwCutout.translate(
-        (
-            width - external.m3.TOP_OFFSET,
-            depth - external.m3.TOP_OFFSET,
-            0,
-        )
-    )
-    return s1.union(s2).union(s3).union(s4)

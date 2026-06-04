@@ -137,7 +137,7 @@ def _build_outletCutout():
 
 
 def _build_innerDuctCutout():
-    w1 = 90
+    w1 = 90 + WALL_STRENGTH
     result = (
         cq.Workplane("XZ")
         .moveTo(WALL_STRENGTH, OUTLET_DUCT_HEIGHT_ABOVE_BASE_PLATE)
@@ -145,7 +145,7 @@ def _build_innerDuctCutout():
             [
                 (WALL_STRENGTH, OUTLET_DUCT_HEIGHT_ABOVE_BASE_PLATE),
                 (WALL_STRENGTH, front.HEIGHT - FOAM_DEPTH - WALL_STRENGTH - w1),
-                (WALL_STRENGTH + w1, front.HEIGHT - FOAM_DEPTH - WALL_STRENGTH),
+                (w1, front.HEIGHT - FOAM_DEPTH - WALL_STRENGTH),
             ]
         )
         .lineTo(WIDTH - SCREW_PADDING, front.HEIGHT - FOAM_DEPTH - WALL_STRENGTH)
@@ -153,7 +153,21 @@ def _build_innerDuctCutout():
         .close()
     ).extrude(-INNER_DUCT_DEPTH)
 
-    return result
+    supportCutout = shapes.supportsAlongYForZ(
+        w1 - SCREW_PADDING,
+        INNER_DUCT_DEPTH,
+        front.HEIGHT
+        - FOAM_DEPTH
+        - WALL_STRENGTH * 1.5
+        - OUTLET_DUCT_HEIGHT_ABOVE_BASE_PLATE,
+        WALL_STRENGTH / 2,
+        4,
+        1,
+    ).translate((SCREW_PADDING, 0, OUTLET_DUCT_HEIGHT_ABOVE_BASE_PLATE))
+    supportCutout = supportCutout.cut(
+        result.translate((-WALL_STRENGTH, 0, WALL_STRENGTH))
+    )
+    return result.union(supportCutout)
 
 
 def _build_ductCutout():
