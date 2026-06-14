@@ -194,7 +194,7 @@ def _build_filterSet():
             DEPTH=FILTER_DEPTH,
             HEIGHT=front.HEIGHT - FILTER_Z,
             WIDTH=WIDTH - WALL_STRENGTH * 2,
-            HANDLE_HEIGHT=HANDLE_HEIGHT + WALL_STRENGTH,
+            HANDLE_HEIGHT=FILTER_Z + front.basePlate.BASE_PLATE_HEIGHT,
             HANDLE_DEPTH=HANDLE_DEPTH,
         )
         .mirror("XZ")
@@ -211,6 +211,7 @@ def _build_filterSet():
             FILTER_ANGLE,
         )
     )
+    ufemale = untrimmed.female
     untrimmed.female = untrimmed.female.cut(
         shapes.boxFromBounds(
             0,
@@ -221,6 +222,8 @@ def _build_filterSet():
             -front.basePlate.BASE_PLATE_HEIGHT,
         )
     )
+    female = untrimmed.female
+    male = untrimmed.male
     return untrimmed
 
 

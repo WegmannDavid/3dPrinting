@@ -13,7 +13,7 @@ _SLOPE_HEIGHT = 1
 
 import shapes
 
-BASE_PLATE_DEPTH = 144
+BASE_PLATE_DEPTH = 144.5
 BASE_PLATE_HEIGHT = 10
 BASE_PLATE_BEGIN = front.DEPTH - BASE_PLATE_DEPTH
 BASE_PLATE_EXTENSION = front.DEPTH_EXTENSION
@@ -33,7 +33,10 @@ def basePlate(width):
         )
         .lineTo(BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION, -FOAM_TOP_INSET)
         .lineTo(BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION, -FOAM_RIM_HEIGHT)
-        .lineTo(BASE_PLATE_BEGIN, -FOAM_RIM_HEIGHT)
+        .lineTo(
+            BASE_PLATE_BEGIN + (BASE_PLATE_HEIGHT - FOAM_RIM_HEIGHT) / 2,
+            -FOAM_RIM_HEIGHT,
+        )
         .lineTo(BASE_PLATE_BEGIN, -BASE_PLATE_HEIGHT)
         .close()
         .extrude(width)
@@ -44,13 +47,6 @@ def basePlate(width):
     ).translate((0, BASE_PLATE_BEGIN, -FOAM_RIM_HEIGHT))
 
     insetr = insetl.translate((front.WIDTH - FOAM_RIM_INSET, 0, 0))
-
-    bottomHoles = bottomDrillings(
-        [
-            BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION + external.m3.FREE_OFFSET,
-            BASE_PLATE_BEGIN + BASE_PLATE_EXTENSION + external.m3.TOP_OFFSET,
-        ]
-    )
 
     return plate.cut(insetl).cut(insetr)
 

@@ -193,7 +193,7 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
         return profile.extrude(FRAME_WIDTH).cut(fingerCutoutLeft).cut(fingerCutoutRight)
 
     def filterParts():
-        pincherGap = 4
+        pincherGap = 6
 
         pincherDepth = SLOT_DEPTH - FRAME_STRENGTH - pincherGap
         depth = SLOT_DEPTH - FRAME_STRENGTH - NARROWING_DEPTH - GAP

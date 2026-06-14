@@ -3,7 +3,7 @@ from prelude import *
 
 import shapes
 
-WIDTH = 1144
+WIDTH = 1146
 SIDE_WALL_WIDTH = 0
 
 DEPTH = 70
@@ -169,13 +169,12 @@ def splitter():
 
     result.add(splitXSides(1).translate((WIDTH - PADDING_WIDTH, 0, 0)))
 
-    basePlateScrewXPositions = [PADDING_WIDTH / 2, PADDING_WIDTH * 1.5]
+    basePlateScrewXPositions = [PADDING_WIDTH / 2]
 
-    for X1 in SEGMENT_POSITIONS[1:]:
-        basePlateScrewXPositions.append(X1 + SEGMENT_SCREW_X_OFFSET)
+    for X1 in SEGMENT_POSITIONS:
+        basePlateScrewXPositions.append(X1 + SEGMENT_WIDTH / 2)
 
     basePlateScrewXPositions.append(WIDTH - PADDING_WIDTH / 2)
-    basePlateScrewXPositions.append(WIDTH - PADDING_WIDTH * 1.5)
 
     result.add(front.basePlate.bottomDrillings(basePlateScrewXPositions))
 
