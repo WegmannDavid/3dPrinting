@@ -193,14 +193,14 @@ def set(DEPTH, HEIGHT, WIDTH, HANDLE_HEIGHT, HANDLE_DEPTH):
         return profile.extrude(FRAME_WIDTH).cut(fingerCutoutLeft).cut(fingerCutoutRight)
 
     def filterParts():
-        pincherGap = 6
+        pincherGap = 4
 
         pincherDepth = SLOT_DEPTH - FRAME_STRENGTH - pincherGap
         depth = SLOT_DEPTH - FRAME_STRENGTH - NARROWING_DEPTH - GAP
         male = (
             framePart(
                 FRAME_STRENGTH + GAP,
-                depth,
+                pincherDepth,
                 pincherDepth - FRAME_STRENGTH,
             )
             .mirror("XZ")
