@@ -3,7 +3,7 @@ from prelude import *
 
 import shapes
 
-WIDTH = 1146
+WIDTH = 1148
 SIDE_WALL_WIDTH = 0
 
 DEPTH = 70
